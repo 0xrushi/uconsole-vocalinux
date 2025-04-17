@@ -1,6 +1,4 @@
-# <img src="https://github.com/user-attachments/assets/56dabe5c-5c65-44d5-a36a-429c9fea0719" width="30" height="30"> Vocalinux
-  
-#### Voice-to-text for Linux, finally done right!
+# Vocalinux
 
 [![Vocalinux CI](https://github.com/jatinkrmalik/vocalinux/workflows/Vocalinux%20CI/badge.svg)](https://github.com/jatinkrmalik/vocalinux/actions?query=workflow%3A%22Vocalinux+CI%22)
 [![codecov](https://codecov.io/gh/jatinkrmalik/vocalinux/branch/main/graph/badge.svg)](https://codecov.io/gh/jatinkrmalik/vocalinux)
@@ -14,239 +12,268 @@
 
 A seamless voice dictation system for Linux, comparable to the built-in solutions on macOS and Windows.
 
+## Overview
 
-<!-- Build & Quality -->
-[![Vocalinux CI](https://github.com/jatinkrmalik/vocalinux/workflows/Vocalinux%20CI/badge.svg)](https://github.com/jatinkrmalik/vocalinux/actions)
-[![Platform: Linux](https://img.shields.io/badge/platform-Linux-lightgrey)](https://github.com/jatinkrmalik/vocalinux)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Made with GTK](https://img.shields.io/badge/Made%20with-GTK-green)](https://www.gtk.org/)
-[![codecov](https://codecov.io/gh/jatinkrmalik/vocalinux/branch/main/graph/badge.svg)](https://codecov.io/gh/jatinkrmalik/vocalinux)
+Vocalinux provides a user-friendly speech-to-text solution for Linux users with:
 
-<!-- Tech & Community -->
-[![GitHub stars](https://img.shields.io/github/stars/jatinkrmalik/vocalinux)](https://github.com/jatinkrmalik/vocalinux/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/jatinkrmalik/vocalinux)](https://github.com/jatinkrmalik/vocalinux/network)
-[![GitHub watchers](https://img.shields.io/github/watchers/jatinkrmalik/vocalinux)](https://github.com/jatinkrmalik/vocalinux/watchers)
-[![Last commit](https://img.shields.io/github/last-commit/jatinkrmalik/vocalinux)](https://github.com/jatinkrmalik/vocalinux/commits)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/jatinkrmalik/vocalinux)](https://github.com/jatinkrmalik/vocalinux/commits)
-[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![GitHub issues](https://img.shields.io/github/issues/jatinkrmalik/vocalinux)](https://github.com/jatinkrmalik/vocalinux/issues)
+- Activation via customizable keyboard shortcuts (default: Alt+Shift+V)
+- Real-time transcription with minimal latency
+- Universal compatibility across applications
+- Offline operation for privacy and reliability
+- Visual indicators for microphone status
+- Audio feedback for recognition status
 
-![Vocalinux Users](https://github.com/user-attachments/assets/e3d8dd16-3d4f-408c-b899-93d85e98b107)
+## Technical Foundation
 
-**A seamless free open-source private voice dictation system for Linux**, comparable to the built-in solutions on macOS and Windows.
+This project leverages existing open-source technologies:
+- Speech recognition: VOSK API / Whisper
+- Text injection: xdotool (X11) / ydotool/wtype (Wayland)
+- User interface: GTK for system tray and settings
+- Audio feedback: PulseAudio for sound notifications
 
-> 🎉 **Alpha Release!** 
-> 
-> We're excited to share Vocalinux with the community.
-> Try it out and [let us know what you think](https://github.com/jatinkrmalik/vocalinux/issues)!
+## Project Structure
 
----
-
-## ✨ Features
-
-- 🎤 **Double-tap Ctrl** to start/stop voice dictation
-- ⚡ **Real-time transcription** with minimal latency
-- 🌎 **Universal compatibility** across all Linux applications
-- 🔒 **Offline operation** for privacy and reliability (with VOSK)
-- 🤖 **Optional Whisper AI** support for enhanced accuracy
-- 🎨 **System tray integration** with visual status indicators
-- 🔊 **Audio feedback** for recording status
-- ⚙️ **Graphical settings** dialog for easy configuration
-
-## 🚀 Quick Install
-
-### One-liner Installation (Recommended)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/jatinkrmalik/vocalinux/main/install.sh | bash
+```
+vocalinux/
+├── docs/                      # Documentation
+│   ├── INSTALL.md            # Installation guide
+│   └── USER_GUIDE.md         # User guide with command reference
+├── resources/                 # Resource files
+│   └── sounds/               # Audio notification sounds
+│       ├── start_recording.mp3  # Sound when recording starts
+│       ├── stop_recording.mp3   # Sound when recording stops
+│       └── error.mp3            # Sound when an error occurs
+├── src/                       # Source code
+│   ├── __init__.py           # Package initialization
+│   ├── main.py               # Main entry point
+│   ├── speech_recognition/   # Speech recognition components
+│   │   ├── __init__.py
+│   │   ├── command_processor.py  # Voice commands processor
+│   │   └── recognition_manager.py  # Speech recognition engine management
+│   ├── text_injection/       # Text injection components
+│   │   ├── __init__.py
+│   │   └── text_injector.py  # X11/Wayland text injection
+│   └── ui/                   # User interface components
+│       ├── __init__.py
+│       ├── audio_feedback.py  # Audio notification system
+│       ├── config_manager.py  # Configuration management
+│       ├── keyboard_shortcuts.py  # Keyboard shortcut handling
+│       └── tray_indicator.py  # System tray UI
+├── tests/                     # Test suite
+│   └── test_basic.py         # Basic unit tests
+├── install.sh                 # Installation script
+├── LICENSE                    # GPLv3 license
+├── README.md                  # This file
+├── setup.py                   # Python package configuration
+└── vocalinux.desktop          # Desktop entry file
 ```
 
-This will:
-- Clone the repository to `~/.local/share/vocalinux-install`
-- Install all system dependencies
-- Set up a virtual environment in `~/.local/share/vocalinux/venv`
-- Install **both VOSK and Whisper AI** speech engines
-- Create a symlink at `~/.local/bin/vocalinux`
-- Download the default **Whisper tiny** speech model (~75MB)
+## Installation
 
-> ⏱️ **Note**: Installation takes ~5-10 minutes due to Whisper AI dependencies (PyTorch).
+### Prerequisites
 
-**Without Whisper (faster install, VOSK only):**
-```bash
-curl -fsSL https://raw.githubusercontent.com/jatinkrmalik/vocalinux/main/install.sh | bash -s -- --no-whisper
-```
+- Ubuntu 22.04 or newer (may work on other Linux distributions)
+- Python 3.6 or newer
+- X11 or Wayland desktop environment
 
-### Alternative: Install from Source
+### Quick Install
 
 ```bash
 # Clone the repository
 git clone https://github.com/jatinkrmalik/vocalinux.git
 cd vocalinux
 
-# Run the installer (will prompt for Whisper)
+# Run the installer script
 ./install.sh
-
-# Or with Whisper support
-./install.sh --with-whisper
 ```
 
-The installer handles everything: system dependencies, Python environment, speech models, and desktop integration.
+The installer will:
+1. Install system dependencies
+2. Set up Python dependencies
+3. Configure the application
+4. Create a desktop entry
 
-### After Installation
+For detailed installation instructions, see [docs/INSTALL.md](docs/INSTALL.md).
+
+## Usage
+
+### Starting the Application
+
+After installation, you can start Vocalinux in several ways:
 
 ```bash
-# If ~/.local/bin is in your PATH (recommended):
+# From the terminal
 vocalinux
 
-# Or activate the virtual environment first:
-source ~/.local/bin/activate-vocalinux.sh
-vocalinux
+# With debugging enabled
+vocalinux --debug
 
-# Or run directly:
-~/.local/share/vocalinux/venv/bin/vocalinux
+# With a specific speech recognition engine
+vocalinux --engine whisper
+
+# With a specific model size
+vocalinux --model medium
 ```
 
-Or launch it from your application menu!
+### Using Voice Dictation
 
-### Uninstall
+1. Press the keyboard shortcut (default: Alt+Shift+V) to start recording
+2. You'll hear a start sound when recording begins
+3. Speak clearly into your microphone
+4. Press the same shortcut again or pause speaking to stop recording
+5. You'll hear a stop sound when recording ends
 
-```bash
-# If installed via curl:
-curl -fsSL https://raw.githubusercontent.com/jatinkrmalik/vocalinux/main/uninstall.sh | bash
+### Using Voice Commands
 
-# If installed from source:
-./uninstall.sh
-```
-
-## 📋 Requirements
-
-- **OS**: Ubuntu 22.04+ (other Linux distros may work)
-- **Python**: 3.8 or newer
-- **Display**: X11 or Wayland
-- **Hardware**: Microphone for voice input
-
-## 🎙️ Usage
-
-### Voice Dictation
-
-1. **Double-tap Ctrl** to start recording
-2. Speak clearly into your microphone
-3. **Double-tap Ctrl** again (or pause speaking) to stop
-
-### Voice Commands
+Vocalinux supports various voice commands for text formatting:
 
 | Command | Action |
 |---------|--------|
 | "new line" | Inserts a line break |
-| "period" / "full stop" | Types a period (.) |
+| "period" | Types a period (.) |
 | "comma" | Types a comma (,) |
 | "question mark" | Types a question mark (?) |
-| "exclamation mark" | Types an exclamation mark (!) |
 | "delete that" | Deletes the last sentence |
 | "capitalize" | Capitalizes the next word |
 
-### Command Line Options
+For a complete list of commands, see [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 
-```bash
-vocalinux --help              # Show all options
-vocalinux --debug             # Enable debug logging
-vocalinux --engine whisper    # Use Whisper AI engine
-vocalinux --model medium      # Use medium-sized model
-vocalinux --wayland           # Force Wayland mode
-```
+## Configuration
 
-## ⚙️ Configuration
-
-Configuration is stored in `~/.config/vocalinux/config.json`:
+Configuration is stored in `~/.config/vocalinux/config.json` and includes:
 
 ```json
 {
-  "speech_recognition": {
-    "engine": "vosk",
-    "model_size": "small",
-    "vad_sensitivity": 3,
-    "silence_timeout": 2.0
-  }
+    "recognition": {
+        "engine": "vosk",
+        "model_size": "small",
+        "auto_punctuate": true,
+        "vad_sensitivity": 3,
+        "timeout": 2.0
+    },
+    "shortcuts": {
+        "toggle_recognition": "alt+shift+v"
+    },
+    "ui": {
+        "start_minimized": false,
+        "show_notifications": true,
+        "audio_feedback": true
+    },
+    "advanced": {
+        "debug_logging": false,
+        "wayland_mode": false
+    }
 }
 ```
 
-You can also configure settings through the graphical Settings dialog (right-click the tray icon).
+### Custom Sounds
 
-## 🔧 Development Setup
+You can customize the audio feedback by replacing the sound files in the `resources/sounds/` directory:
+
+- `start_recording.mp3` - Played when recording starts
+- `stop_recording.mp3` - Played when recording stops
+- `error.mp3` - Played when an error occurs
+
+Both MP3 and WAV formats are supported, with MP3 being the primary format.
+
+## Development
+
+### Setting Up Development Environment
 
 ```bash
-# Clone and install in dev mode
+# Clone the repository
 git clone https://github.com/jatinkrmalik/vocalinux.git
 cd vocalinux
-./install.sh --dev
 
-# Activate environment
-source venv/bin/activate
+# Install development dependencies
+pip install -e ".[dev]"
 
 # Run tests
+pytest tests/
+```
+
+### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality and consistency. The hooks will automatically check your code for linting errors before each commit, which helps prevent CI pipeline failures.
+
+To set up pre-commit hooks:
+
+1. Install pre-commit: `pip install pre-commit`
+2. Install the git hooks: `pre-commit install`
+
+Now, when you try to commit changes, the pre-commit hooks will automatically run and check your code. If any issues are found, the commit will be blocked until you fix them.
+
+To manually run all pre-commit hooks on all files:
+```
+pre-commit run --all-files
+```
+
+### Pre-commit Checks
+
+The following checks are performed by pre-commit:
+- **black**: Code formatting
+- **isort**: Import sorting
+- **flake8**: Code style and error detection
+- Various file checks (trailing whitespace, merge conflicts, etc.)
+
+### Key Components
+
+1. **Speech Recognition Manager** (`src/speech_recognition/recognition_manager.py`)
+   - Manages speech recognition engines (VOSK, Whisper)
+   - Handles audio recording and voice activity detection
+   - Processes recognition results
+
+2. **Command Processor** (`src/speech_recognition/command_processor.py`)
+   - Interprets voice commands in recognition results
+   - Converts commands to text or actions
+
+3. **Text Injector** (`src/text_injection/text_injector.py`)
+   - Injects text into active applications
+   - Supports both X11 and Wayland environments
+   - Automatically falls back to XWayland when needed
+
+4. **Audio Feedback** (`src/ui/audio_feedback.py`)
+   - Provides audio cues for application states
+   - Supports both MP3 and WAV formats
+   - Uses system audio players (PulseAudio/ALSA)
+
+5. **Tray Indicator** (`src/ui/tray_indicator.py`)
+   - Provides system tray interface
+   - Shows recognition status
+   - Offers menu for control
+
+6. **Keyboard Shortcut Manager** (`src/ui/keyboard_shortcuts.py`)
+   - Manages global keyboard shortcuts
+   - Enables activation from any application
+   - Handles modifier key normalization
+
+### Running Tests
+
+```bash
+# Run all tests
 pytest
 
-# Run from source with debug
-python -m vocalinux.main --debug
+# Run with coverage report
+pytest --cov=src
 ```
 
-## 📁 Project Structure
+## Roadmap
 
-```
-vocalinux/
-├── src/vocalinux/           # Main application code
-│   ├── speech_recognition/  # Speech recognition engines
-│   ├── text_injection/      # Text injection (X11/Wayland)
-│   ├── ui/                  # GTK UI components
-│   └── utils/               # Utility functions
-├── tests/                   # Test suite
-├── resources/               # Icons and sounds
-├── docs/                    # Documentation
-└── web/                     # Website source
-```
+Future development plans include:
 
-## 📖 Documentation
+1. Custom icon design
+2. Graphical settings dialog
+3. Advanced voice commands for specific applications
+4. Multi-language support
+5. Better integration with popular applications
+6. Improved model management
+7. Customizable keyboard shortcuts via GUI
+8. More audio feedback options
 
-- [Installation Guide](docs/INSTALL.md) - Detailed installation instructions
-- [User Guide](docs/USER_GUIDE.md) - Complete user documentation
-- [Contributing](CONTRIBUTING.md) - Development setup and contribution guidelines
+## Contributing
 
-## 🗺️ Roadmap
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-- [x] ~~Custom icon design~~ ✅
-- [x] ~~Graphical settings dialog~~ ✅
-- [x] ~~Whisper AI support~~ ✅
-- [ ] Multi-language support
-- [ ] Application-specific commands
-- [ ] Debian/Ubuntu package (.deb)
-- [ ] Improved Wayland support
-- [ ] Voice command customization
+## License
 
-## 🤝 Contributing
-
-We welcome contributions! Whether it's bug reports, feature requests, or code contributions, please check out our [Contributing Guide](CONTRIBUTING.md).
-
-### Quick Links
-
-- 🐛 [Report a Bug](https://github.com/jatinkrmalik/vocalinux/issues/new?template=bug_report.md)
-- 💡 [Request a Feature](https://github.com/jatinkrmalik/vocalinux/issues/new?template=feature_request.md)
-- 💬 [Discussions](https://github.com/jatinkrmalik/vocalinux/discussions)
-
-
-## ⭐ Support
-
-If you find Vocalinux useful, please consider:
-- ⭐ Starring this repository
-- 🐛 Reporting bugs you encounter
-- 📖 Improving documentation
-- 🔀 Contributing code
-
-## 📜 License
-
-This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
-
----
-
-<p align="center">
-  Made with ❤️ for the Linux community
-</p>
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
