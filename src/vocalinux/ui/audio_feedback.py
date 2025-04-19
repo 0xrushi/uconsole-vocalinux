@@ -8,27 +8,20 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Set a flag for CI/test environments
-# This will be used to make sound functions work in CI testing environments
-# Only use mock player in CI when not explicitly testing the player detection
-CI_MODE = os.environ.get("GITHUB_ACTIONS") == "true"
-
-
-# Import the centralized resource manager
-from ..utils.resource_manager import ResourceManager
-
-# Initialize resource manager
-_resource_manager = ResourceManager()
+# Find the resources directory relative to this module
+MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
+PACKAGE_DIR = os.path.dirname(MODULE_DIR)
+RESOURCES_DIR = os.path.join(os.path.dirname(PACKAGE_DIR), "resources")
+SOUNDS_DIR = os.path.join(RESOURCES_DIR, "sounds")
 
 # Sound file paths
-START_SOUND = _resource_manager.get_sound_path("start_recording")
-STOP_SOUND = _resource_manager.get_sound_path("stop_recording")
-ERROR_SOUND = _resource_manager.get_sound_path("error")
+START_SOUND = os.path.join(SOUNDS_DIR, "start_recording.wav")
+STOP_SOUND = os.path.join(SOUNDS_DIR, "stop_recording.wav")
+ERROR_SOUND = os.path.join(SOUNDS_DIR, "error.wav")
 
 
 def _get_audio_player():
@@ -38,12 +31,6 @@ def _get_audio_player():
     Returns:
         tuple: (player_command, supported_formats)
     """
-    # In CI mode, return a mock player to make tests pass,
-    # but only when not running pytest (to avoid interfering with unit tests)
-    if CI_MODE:
-        logger.info("CI mode: Using mock audio player")
-        return "mock_player", ["wav"]
-
     # Check for PulseAudio paplay (preferred)
     if shutil.which("paplay"):
         return "paplay", ["wav"]
@@ -80,22 +67,8 @@ def _play_sound_file(sound_path):
         return False
 
     player, formats = _get_audio_player()
-
-    # Special handling for CI environment during tests
-    # If we're in CI (no audio players available) but running tests,
-    # continue with the execution to allow proper mocking
-    if not player and os.environ.get("GITHUB_ACTIONS") == "true":
-        # In CI tests with no audio player, use a placeholder to allow mocking to work
-        player = "ci_test_player"
-
     if not player:
         return False
-
-    # In CI mode, just pretend we played the sound and return success
-    # but only when not running pytest (to avoid interfering with unit tests)
-    if CI_MODE and player == "mock_player":
-        logger.info(f"CI mode: Simulating playing sound {sound_path}")
-        return True
 
     try:
         if player == "paplay":
@@ -119,13 +92,6 @@ def _play_sound_file(sound_path):
         elif player == "play":
             subprocess.Popen(
                 [player, "-q", sound_path],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        elif player == "ci_test_player":
-            # This is a placeholder for CI tests - the subprocess call will be mocked
-            subprocess.Popen(
-                ["ci_test_player", sound_path],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
