@@ -12,4 +12,3 @@ from .common_types import RecognitionState
 from .speech_recognition import recognition_manager
 from .text_injection import text_injector
 from .ui import tray_indicator
-from .utils import ResourceManager

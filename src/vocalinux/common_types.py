@@ -29,7 +29,9 @@ class SpeechRecognitionManagerProtocol(Protocol):
         """Stop the speech recognition process."""
         ...
 
-    def register_state_callback(self, callback: Callable[[RecognitionState], None]) -> None:
+    def register_state_callback(
+        self, callback: Callable[[RecognitionState], None]
+    ) -> None:
         """Register a callback for state changes."""
         ...
 
