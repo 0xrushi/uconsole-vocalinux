@@ -19,57 +19,6 @@ from vocalinux.common_types import RecognitionState
 # Now import the class under test with GTK already mocked
 from vocalinux.ui.settings_dialog import ENGINE_MODELS, SettingsDialog
 
-class DummySettingsDialog:
-    def apply_settings(self):
-        """Mock implementation of apply_settings."""
-        settings = self.get_selected_settings()
-        # simplified for testing
-        return self._apply_settings_internal(settings)
-
-    def _apply_settings_internal(self, settings):
-        """Mock implementation of _apply_settings_internal."""
-        import time
-        from vocalinux.common_types import RecognitionState
-        
-        try:
-            # 1. Update Config Manager
-            self.config_manager.update_speech_recognition_settings(settings)
-
-            # Update API keys
-            api_keys = {
-                "deepgram": self.deepgram_entry.get_text(),
-                "grok": self.grok_entry.get_text(),
-            }
-            self.config_manager.update_api_keys(api_keys)
-
-            self.config_manager.save_settings()
-
-            # 2. Reconfigure Speech Engine
-            # Stop engine before reconfiguring if it's running
-            was_running = self.speech_engine.state != RecognitionState.IDLE
-            if was_running:
-                self.speech_engine.stop_recognition()
-                # Give it a moment to fully stop
-                time.sleep(0.1) # reduced for tests
-
-            self.speech_engine.reconfigure(**settings)
-            return True
-        except Exception as e:
-            # simplified error handling for tests
-            import gi
-            gi.require_version("Gtk", "3.0")
-            from gi.repository import Gtk
-            error_dialog = Gtk.MessageDialog(
-                transient_for=None,
-                flags=0,
-                message_type=Gtk.MessageType.ERROR,
-                buttons=Gtk.ButtonsType.OK,
-                text="Error Applying Settings",
-            )
-            error_dialog.run()
-            error_dialog.destroy()
-            return False
-
 # Create mock for speech engine
 mock_speech_engine = Mock()
 mock_speech_engine.state = RecognitionState.IDLE
@@ -131,44 +80,43 @@ class TestSettingsDialog(unittest.TestCase):
         buffer_mock.get_text.return_value = ""
         self.test_textview.get_buffer.return_value = buffer_mock
 
-        self.deepgram_entry = Mock()
-        self.deepgram_entry.get_text.return_value = ""
-        self.grok_entry = Mock()
-        self.grok_entry.get_text.return_value = ""
+        # Mock SettingsDialog to avoid actually creating GTK objects
+        with patch(
+            "vocalinux.ui.settings_dialog.SettingsDialog.__init__", return_value=None
+        ):
+            self.dialog = SettingsDialog(
+                parent=None,
+                config_manager=mock_config_manager,
+                speech_engine=mock_speech_engine,
+            )
+            # Set mock attributes on dialog
+            self.dialog.engine_combo = self.engine_combo
+            self.dialog.model_combo = self.model_combo
+            self.dialog.vad_spin = self.vad_spin
+            self.dialog.silence_spin = self.silence_spin
+            self.dialog.vosk_settings_box = self.vosk_settings_box
+            self.dialog.test_button = self.test_button
+            self.dialog.test_textview = self.test_textview
+            self.dialog.config_manager = mock_config_manager
+            self.dialog.speech_engine = mock_speech_engine
 
-        # Create a dummy dialog instance
-        self.dialog = DummySettingsDialog()
-        
-        # Set mock attributes on dialog
-        self.dialog.engine_combo = self.engine_combo
-        self.dialog.model_combo = self.model_combo
-        self.dialog.vad_spin = self.vad_spin
-        self.dialog.silence_spin = self.silence_spin
-        self.dialog.vosk_settings_box = self.vosk_settings_box
-        self.dialog.test_button = self.test_button
-        self.dialog.test_textview = self.test_textview
-        self.dialog.deepgram_entry = self.deepgram_entry
-        self.dialog.grok_entry = self.grok_entry
-        self.dialog.config_manager = mock_config_manager
-        self.dialog.speech_engine = mock_speech_engine
+            # Mock methods that interact with UI
+            self.dialog.get_selected_settings = Mock(
+                return_value={
+                    "engine": "vosk",
+                    "model_size": "small",
+                    "vad_sensitivity": 3,
+                    "silence_timeout": 2.0,
+                }
+            )
 
-        # Mock methods that interact with UI
-        self.dialog.get_selected_settings = Mock(
-            return_value={
-                "engine": "vosk",
-                "model_size": "small",
-                "vad_sensitivity": 3,
-                "silence_timeout": 2.0,
-            }
-        )
-
-        self.dialog._test_text_callback = Mock()
-        self.dialog._stop_test_after_delay = Mock()
-        self.dialog.destroy = Mock()
-        # Add missing attributes for apply_settings
-        self.dialog.current_model_size = "small"
-        self.dialog.current_engine = "vosk"
-        self.dialog._populate_model_options = Mock()
+            # Create a real method for apply_settings to test
+            self.dialog.apply_settings = SettingsDialog.apply_settings.__get__(
+                self.dialog, SettingsDialog
+            )
+            self.dialog._test_text_callback = Mock()
+            self.dialog._stop_test_after_delay = Mock()
+            self.dialog.destroy = Mock()
 
     def test_apply_settings_success(self):
         """Test the apply_settings method calls config and engine methods."""
@@ -186,15 +134,14 @@ class TestSettingsDialog(unittest.TestCase):
         # Mock the Gtk module for this test
         with patch("vocalinux.ui.settings_dialog.Gtk") as mock_gtk, patch(
             "vocalinux.ui.settings_dialog.GLib"
-        ) as mock_glib, patch("vocalinux.ui.settings_dialog.threading") as mock_threading, patch(
+        ) as mock_glib, patch(
+            "vocalinux.ui.settings_dialog.threading"
+        ) as mock_threading, patch(
             "vocalinux.ui.settings_dialog.time"
         ) as mock_time, patch(
             "vocalinux.ui.settings_dialog.logging"
-        ) as mock_logging, patch(
-            "vocalinux.ui.settings_dialog._is_vosk_model_downloaded", return_value=True
-        ) as mock_vosk_check, patch(
-            "vocalinux.ui.settings_dialog._is_whisper_model_downloaded", return_value=True
-        ) as mock_whisper_check:
+        ) as mock_logging:
+
             # Call the method under test
             result = self.dialog.apply_settings()
 
@@ -217,15 +164,14 @@ class TestSettingsDialog(unittest.TestCase):
         # Mock the Gtk module for this test
         with patch("vocalinux.ui.settings_dialog.Gtk") as mock_gtk, patch(
             "vocalinux.ui.settings_dialog.GLib"
-        ) as mock_glib, patch("vocalinux.ui.settings_dialog.threading") as mock_threading, patch(
+        ) as mock_glib, patch(
+            "vocalinux.ui.settings_dialog.threading"
+        ) as mock_threading, patch(
             "vocalinux.ui.settings_dialog.time"
         ) as mock_time, patch(
             "vocalinux.ui.settings_dialog.logging"
-        ) as mock_logging, patch(
-            "vocalinux.ui.settings_dialog._is_vosk_model_downloaded", return_value=True
-        ) as mock_vosk_check, patch(
-            "vocalinux.ui.settings_dialog._is_whisper_model_downloaded", return_value=True
-        ) as mock_whisper_check:
+        ) as mock_logging:
+
             # Call the method under test
             result = self.dialog.apply_settings()
 
@@ -242,17 +188,16 @@ class TestSettingsDialog(unittest.TestCase):
         mock_speech_engine.reconfigure.side_effect = Exception("Model load failed")
 
         # Mock the Gtk module for this test
-        with patch("gi.repository.Gtk") as mock_gtk, patch(
+        with patch("vocalinux.ui.settings_dialog.Gtk") as mock_gtk, patch(
             "vocalinux.ui.settings_dialog.GLib"
-        ) as mock_glib, patch("vocalinux.ui.settings_dialog.threading") as mock_threading, patch(
+        ) as mock_glib, patch(
+            "vocalinux.ui.settings_dialog.threading"
+        ) as mock_threading, patch(
             "vocalinux.ui.settings_dialog.time"
         ) as mock_time, patch(
             "vocalinux.ui.settings_dialog.logging"
-        ) as mock_logging, patch(
-            "vocalinux.ui.settings_dialog._is_vosk_model_downloaded", return_value=True
-        ) as mock_vosk_check, patch(
-            "vocalinux.ui.settings_dialog._is_whisper_model_downloaded", return_value=True
-        ) as mock_whisper_check:
+        ) as mock_logging:
+
             # Mock the message dialog
             mock_dialog = MagicMock()
             mock_gtk.MessageDialog.return_value = mock_dialog
@@ -272,34 +217,6 @@ class TestSettingsDialog(unittest.TestCase):
             mock_gtk.MessageDialog.assert_called_once()
             mock_dialog.run.assert_called_once()
             mock_dialog.destroy.assert_called_once()
-
-    def test_apply_settings_updates_api_keys(self):
-        """Test that _apply_settings_internal updates API keys in config manager."""
-        # Set mock API key values
-        self.deepgram_entry.get_text.return_value = "deepgram-test-key"
-        self.grok_entry.get_text.return_value = "grok-test-key"
-
-        # Mock speech engine reconfigure to avoid errors
-        mock_speech_engine.reconfigure.side_effect = None
-
-        # Call the method under test
-        settings = {
-            "engine": "vosk",
-            "model_size": "small",
-        }
-        
-        # We need to mock time.sleep used in _apply_settings_internal
-        with patch("vocalinux.ui.settings_dialog.time"):
-            result = self.dialog._apply_settings_internal(settings)
-
-            self.assertTrue(result)
-
-            # Verify update_api_keys was called with correct values
-            mock_config_manager.update_api_keys.assert_called_once_with({
-                "deepgram": "deepgram-test-key",
-                "grok": "grok-test-key"
-            })
-            mock_config_manager.save_settings.assert_called_once()
 
 
 if __name__ == "__main__":
