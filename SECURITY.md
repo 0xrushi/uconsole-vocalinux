@@ -42,14 +42,14 @@ We take security seriously. If you discover a security vulnerability within Voca
 
 Vocalinux is designed with privacy in mind:
 
-- **Offline by default**: Both Whisper (default) and VOSK engines work completely offline
+- **Offline by default**: The VOSK engine works completely offline
 - **Local processing**: All speech recognition happens on your device
 - **No data collection**: We don't collect or transmit your voice data
 - **No telemetry**: We don't track usage or behavior
 
-### Whisper AI (Default Engine)
+### Whisper AI
 
-Whisper is the default speech recognition engine:
+When using Whisper, be aware:
 - Whisper processes locally on your machine
 - Models are downloaded once and cached locally
 - No audio data is sent to external servers
