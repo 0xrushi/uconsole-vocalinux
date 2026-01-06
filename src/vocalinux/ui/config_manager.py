@@ -24,6 +24,10 @@ DEFAULT_CONFIG = {
         "vad_sensitivity": 3,  # Voice Activity Detection sensitivity (1-5) - Moved here
         "silence_timeout": 2.0,  # Seconds of silence before stopping recognition - Moved here
     },
+    "api_keys": {
+        "deepgram": "",
+        "grok": "",
+    },
     "shortcuts": {
         "toggle_recognition": "ctrl+ctrl",  # Double-tap Ctrl
     },
@@ -149,6 +153,15 @@ class ConfigManager:
         for key, value in settings.items():
             self.config["speech_recognition"][key] = value
         logger.info(f"Updated speech recognition settings: {settings}")
+
+    def update_api_keys(self, keys: Dict[str, str]):
+        """Update API keys."""
+        if "api_keys" not in self.config:
+            self.config["api_keys"] = {}
+
+        for key, value in keys.items():
+            self.config["api_keys"][key] = value
+        logger.info("Updated API keys")
 
     def _update_dict_recursive(self, target: Dict, source: Dict):
         """

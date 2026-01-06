@@ -119,6 +119,7 @@ def main():
         speech_engine = recognition_manager.SpeechRecognitionManager(
             engine=engine,
             model_size=model_size,
+            config_manager=config_manager,
         )
 
         # Initialize text injection system

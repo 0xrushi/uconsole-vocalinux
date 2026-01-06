@@ -10,6 +10,7 @@ import ctypes
 import json
 import logging
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -87,24 +88,32 @@ class SpeechRecognitionManager:
     """
 
     def __init__(
-        self, engine: str = "vosk", model_size: str = "small", defer_download: bool = True, **kwargs
+        self,
+        engine: str = "vosk",
+        model_size: str = "small",
+        defer_download: bool = True,
+        config_manager: Optional["ConfigManager"] = None,
+        **kwargs,
     ):
         """
         Initialize the speech recognition manager.
 
         Args:
-            engine: The speech recognition engine to use ("vosk" or "whisper")
-            model_size: The size of the model to use ("small", "medium", "large")
+            engine: The speech recognition engine to use ("vosk", "whisper", "deepgram", "grok")
+            model_size: The size of the model to use
             defer_download: If True, don't download missing models at startup (default: True)
+            config_manager: Configuration manager instance to retrieve API keys
         """
         self.engine = engine
         self.model_size = model_size
+        self.config_manager = config_manager
         self.state = RecognitionState.IDLE
         self.audio_thread = None
         self.recognition_thread = None
         self.model = None
         self.recognizer = None  # Added for VOSK
         self.command_processor = CommandProcessor()
+        self.visual_process = None # Process handle for visual indicator
         self.text_callbacks: List[Callable[[str], None]] = []
         self.state_callbacks: List[Callable[[RecognitionState], None]] = []
         self.action_callbacks: List[Callable[[str], None]] = []
@@ -133,8 +142,49 @@ class SpeechRecognitionManager:
             self._init_vosk()
         elif engine == "whisper":
             self._init_whisper()
+        elif engine == "deepgram":
+            self._init_deepgram()
+        elif engine == "grok":
+            self._init_grok()
         else:
             raise ValueError(f"Unsupported speech recognition engine: {engine}")
+
+    def _init_deepgram(self):
+        """Initialize the Deepgram speech recognition engine."""
+        logger.info(f"Initializing Deepgram engine with model: {self.model_size}")
+        if not self.config_manager:
+            logger.error("Config manager not provided, cannot retrieve Deepgram API key")
+            self._model_initialized = False
+            return
+
+        api_keys = self.config_manager.get_settings().get("api_keys", {})
+        self.deepgram_key = api_keys.get("deepgram", "")
+
+        if not self.deepgram_key:
+            logger.warning("Deepgram API key not found in configuration")
+            self._model_initialized = False
+        else:
+            self._model_initialized = True
+            logger.info("Deepgram engine initialized (API key found)")
+
+    def _init_grok(self):
+        """Initialize the Grok speech recognition engine."""
+        logger.info(f"Initializing Grok engine with model: {self.model_size}")
+        if not self.config_manager:
+            logger.error("Config manager not provided, cannot retrieve Grok API key")
+            self._model_initialized = False
+            return
+
+        api_keys = self.config_manager.get_settings().get("api_keys", {})
+        self.grok_key = api_keys.get("grok", "")
+
+        if not self.grok_key:
+            logger.warning("Grok API key not found in configuration")
+            self._model_initialized = False
+        else:
+            self._model_initialized = True
+            logger.info("Grok engine initialized (API key found)")
+
 
     def _init_vosk(self):
         """Initialize the VOSK speech recognition engine."""
@@ -666,6 +716,10 @@ class SpeechRecognitionManager:
             return
 
         logger.info("Starting speech recognition")
+        
+        # Start visual indicator
+        self.start_visual_indicator()
+        
         self._update_state(RecognitionState.LISTENING)
 
         # Play the start sound
@@ -691,6 +745,9 @@ class SpeechRecognitionManager:
             return
 
         logger.info("Stopping speech recognition")
+
+        # Stop visual indicator
+        self.stop_visual_indicator()
 
         # Play the stop sound
         play_stop_sound()
@@ -806,6 +863,7 @@ class SpeechRecognitionManager:
         if not self.audio_buffer:
             return
 
+        text = ""
         if self.engine == "vosk":
             for data in self.audio_buffer:
                 self.recognizer.AcceptWaveform(data)
@@ -815,6 +873,12 @@ class SpeechRecognitionManager:
 
         elif self.engine == "whisper":
             text = self._transcribe_with_whisper(self.audio_buffer)
+
+        elif self.engine == "deepgram":
+            text = self._transcribe_with_deepgram(self.audio_buffer)
+
+        elif self.engine == "grok":
+            text = self._transcribe_with_grok(self.audio_buffer)
 
         else:
             logger.error(f"Unknown engine: {self.engine}")
@@ -833,6 +897,86 @@ class SpeechRecognitionManager:
             for action in actions:
                 for callback in self.action_callbacks:
                     callback(action)
+
+    def _transcribe_with_deepgram(self, audio_buffer: List[bytes]) -> str:
+        """Transcribe audio buffer using Deepgram API."""
+        try:
+            import requests
+
+            if not audio_buffer:
+                return ""
+
+            if not hasattr(self, "deepgram_key") or not self.deepgram_key:
+                logger.error("Deepgram API key not set")
+                return ""
+
+            audio_data = b"".join(audio_buffer)
+            
+            # Use requests to call Deepgram API
+            url = f"https://api.deepgram.com/v1/listen?model={self.model_size}&smart_format=true"
+            headers = {
+                "Authorization": f"Token {self.deepgram_key}",
+                "Content-Type": "audio/wav", # Sending raw PCM data might need headers adjustment
+            }
+            
+            # Deepgram prefers WAV, but can handle raw PCM if params are specified
+            # For simplicity, we assume the API handles it or we'd wrap in WAV
+            # Here we specify encoding/sample_rate if sending raw
+            url += "&encoding=linear16&sample_rate=16000"
+
+            response = requests.post(url, headers=headers, data=audio_data, timeout=10)
+            response.raise_for_status()
+            
+            result = response.json()
+            text = result.get("results", {}).get("channels", [{}])[0].get("alternatives", [{}])[0].get("transcript", "")
+            
+            if text:
+                logger.info(f"Deepgram transcribed: '{text}'")
+            return text.strip()
+
+        except Exception as e:
+            logger.error(f"Deepgram transcription error: {e}")
+            return ""
+
+    def _transcribe_with_grok(self, audio_buffer: List[bytes]) -> str:
+        """Transcribe audio buffer using Grok API (assuming Grok-Whisper or similar)."""
+        # Note: As of now, Grok (xAI) might not have a direct STT endpoint like Deepgram
+        # If it's Groq (the speed provider), it uses Whisper.
+        # Assuming user meant xAI's Grok and it might support audio in future or via specific integration
+        logger.warning("Grok STT integration is placeholder (check if API supports audio/transcription)")
+        return ""
+
+    def start_visual_indicator(self):
+        """Start the visual indicator script."""
+        try:
+            script_path = os.path.join(os.getcwd(), "scripts", "glowing_star.py")
+            if not os.path.exists(script_path):
+                logger.warning(f"Visual indicator script not found at {script_path}")
+                return
+
+            if self.visual_process is None:
+                self.visual_process = subprocess.Popen(
+                    [sys.executable, script_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                logger.info("Started visual indicator")
+        except Exception as e:
+            logger.error(f"Failed to start visual indicator: {e}")
+
+    def stop_visual_indicator(self):
+        """Stop the visual indicator script."""
+        if self.visual_process:
+            try:
+                self.visual_process.terminate()
+                self.visual_process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                self.visual_process.kill()
+            except Exception as e:
+                logger.error(f"Error stopping visual indicator: {e}")
+            finally:
+                self.visual_process = None
+                logger.info("Stopped visual indicator")
 
     def _perform_recognition(self):
         """Perform speech recognition in real-time."""
@@ -891,6 +1035,10 @@ class SpeechRecognitionManager:
                     self._init_vosk()
                 elif self.engine == "whisper":
                     self._init_whisper()
+                elif self.engine == "deepgram":
+                    self._init_deepgram()
+                elif self.engine == "grok":
+                    self._init_grok()
                 else:
                     raise ValueError(f"Unsupported engine during reconfigure: {self.engine}")
                 logger.info("Speech engine re-initialized successfully.")

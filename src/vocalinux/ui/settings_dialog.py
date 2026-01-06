@@ -40,6 +40,16 @@ ENGINE_MODELS = {
         "medium",
         "large",
     ],  # Add more whisper sizes if needed
+    "deepgram": [
+        "nova-3",
+        "nova-2",
+        "enhanced",
+        "base",
+    ],
+    "grok": [
+        "grok-2",
+        "grok-beta",
+    ],
 }
 
 # Whisper model metadata for display
@@ -420,6 +430,39 @@ class SettingsDialog(Gtk.Dialog):
 
         self.grid.attach(self.whisper_info_box, 0, 4, 2, 1)
 
+        # API Keys Section
+        self.api_keys_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        self.api_keys_grid = Gtk.Grid(column_spacing=10, row_spacing=10)
+        self.api_keys_box.pack_start(
+            Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 5
+        )
+        self.api_keys_box.pack_start(
+            Gtk.Label(label="<b>API Keys</b>", use_markup=True, halign=Gtk.Align.START),
+            False,
+            False,
+            5,
+        )
+        self.api_keys_box.pack_start(self.api_keys_grid, False, False, 0)
+        self.grid.attach(self.api_keys_box, 0, 5, 2, 1)
+
+        # Deepgram API Key
+        self.api_keys_grid.attach(
+            Gtk.Label(label="Deepgram API Key:", halign=Gtk.Align.START), 0, 0, 1, 1
+        )
+        self.deepgram_entry = Gtk.Entry()
+        self.deepgram_entry.set_visibility(False)  # Hide characters
+        self.deepgram_entry.set_placeholder_text("Enter Deepgram API Key")
+        self.api_keys_grid.attach(self.deepgram_entry, 1, 0, 1, 1)
+
+        # Grok API Key
+        self.api_keys_grid.attach(
+            Gtk.Label(label="Grok API Key:", halign=Gtk.Align.START), 0, 1, 1, 1
+        )
+        self.grok_entry = Gtk.Entry()
+        self.grok_entry.set_visibility(False)
+        self.grok_entry.set_placeholder_text("Enter Grok API Key")
+        self.api_keys_grid.attach(self.grok_entry, 1, 1, 1, 1)
+
         # Add model change handler
         self.model_combo.connect("changed", self._on_model_changed)
 
@@ -481,6 +524,8 @@ class SettingsDialog(Gtk.Dialog):
         # Set non-dependent widgets directly
         self.vad_spin.set_value(self.current_vad)
         self.silence_spin.set_value(self.current_silence)
+        self.deepgram_entry.set_text(settings.get("deepgram_key", ""))
+        self.grok_entry.set_text(settings.get("grok_key", ""))
 
         # Show everything first
         self.show_all()
@@ -504,6 +549,11 @@ class SettingsDialog(Gtk.Dialog):
         vad_sensitivity = sr_settings.get("vad_sensitivity", 3)
         silence_timeout = sr_settings.get("silence_timeout", 2.0)
 
+        # API Keys
+        api_keys = settings.get("api_keys", {})
+        deepgram_key = api_keys.get("deepgram", "")
+        grok_key = api_keys.get("grok", "")
+
         logger.info(
             f"Loaded current settings: engine={engine}, model_size={model_size}, "
             f"vad={vad_sensitivity}, silence={silence_timeout}"
@@ -514,6 +564,8 @@ class SettingsDialog(Gtk.Dialog):
             "model_size": model_size,
             "vad_sensitivity": vad_sensitivity,
             "silence_timeout": silence_timeout,
+            "deepgram_key": deepgram_key,
+            "grok_key": grok_key,
         }
 
     def _populate_model_options(self):
@@ -1074,6 +1126,14 @@ For now, the engine has been reverted to VOSK."""
         try:
             # 1. Update Config Manager
             self.config_manager.update_speech_recognition_settings(settings)
+
+            # Update API keys
+            api_keys = {
+                "deepgram": self.deepgram_entry.get_text(),
+                "grok": self.grok_entry.get_text(),
+            }
+            self.config_manager.update_api_keys(api_keys)
+
             self.config_manager.save_settings()
 
             # 2. Reconfigure Speech Engine
