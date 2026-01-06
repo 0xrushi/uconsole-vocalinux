@@ -14,10 +14,11 @@ from typing import Callable, Dict, Optional
 
 import gi
 
-# Import GTK
-gi.require_version("Gtk", "3.0")
-gi.require_version("AppIndicator3", "0.1")
-from gi.repository import AppIndicator3, GdkPixbuf, GLib, GObject, Gtk
+# Import GTK and AppIndicator via helper
+from ..utils.gtk_appindicator import load_gtk_appindicator
+
+Gtk, AppIndicator3, _ = load_gtk_appindicator()
+from gi.repository import GdkPixbuf, GLib, GObject
 
 # Import local modules - Use protocols to avoid circular imports
 from ..common_types import (
@@ -45,9 +46,10 @@ _resource_manager = ResourceManager()
 ICON_DIR = _resource_manager.icons_dir
 
 # Icon file names
-DEFAULT_ICON = "vocalinux-microphone-off"
+DEFAULT_ICON = "vocalinux"
 ACTIVE_ICON = "vocalinux-microphone"
 PROCESSING_ICON = "vocalinux-microphone-process"
+OFF_ICON = "vocalinux-microphone-off"
 
 
 class TrayIndicator:
@@ -224,7 +226,7 @@ class TrayIndicator:
             state: The current recognition state
         """
         if state == RecognitionState.IDLE:
-            self.indicator.set_icon_full(self.icon_paths["default"], "Microphone off")
+            self.indicator.set_icon_full(self.icon_paths["default"], "Ready")
             self._set_menu_item_enabled("Start Voice Typing", True)
             self._set_menu_item_enabled("Stop Voice Typing", False)
         elif state == RecognitionState.LISTENING:

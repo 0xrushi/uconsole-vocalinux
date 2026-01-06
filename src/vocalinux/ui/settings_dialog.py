@@ -452,6 +452,8 @@ class SettingsDialog(Gtk.Dialog):
         self.deepgram_entry = Gtk.Entry()
         self.deepgram_entry.set_visibility(False)  # Hide characters
         self.deepgram_entry.set_placeholder_text("Enter Deepgram API Key")
+        # Auto-apply on focus out
+        self.deepgram_entry.connect("focus-out-event", lambda w, e: self._auto_apply_settings())
         self.api_keys_grid.attach(self.deepgram_entry, 1, 0, 1, 1)
 
         # Grok API Key
@@ -461,6 +463,8 @@ class SettingsDialog(Gtk.Dialog):
         self.grok_entry = Gtk.Entry()
         self.grok_entry.set_visibility(False)
         self.grok_entry.set_placeholder_text("Enter Grok API Key")
+        # Auto-apply on focus out
+        self.grok_entry.connect("focus-out-event", lambda w, e: self._auto_apply_settings())
         self.api_keys_grid.attach(self.grok_entry, 1, 1, 1, 1)
 
         # Add model change handler
@@ -597,9 +601,13 @@ class SettingsDialog(Gtk.Dialog):
         if engine in ENGINE_MODELS:
             # Add all options for this engine
             for size in ENGINE_MODELS[engine]:
+                display_text = size.capitalize()
+                is_available = True  # Default to true for API engines
+
                 if engine == "whisper" and size in WHISPER_MODEL_INFO:
                     info = WHISPER_MODEL_INFO[size]
                     is_downloaded = _is_whisper_model_downloaded(size)
+                    is_available = is_downloaded
                     status = "✓" if is_downloaded else "↓"
                     rec = " ★" if size == recommended_model else ""
                     display_text = (
@@ -607,11 +615,11 @@ class SettingsDialog(Gtk.Dialog):
                     )
                     if is_downloaded:
                         downloaded_models.append(size)
-                    if smallest_model is None:
-                        smallest_model = size
+                    
                 elif engine == "vosk" and size in VOSK_MODEL_INFO:
                     info = VOSK_MODEL_INFO[size]
                     is_downloaded = _is_vosk_model_downloaded(size)
+                    is_available = is_downloaded
                     status = "✓" if is_downloaded else "↓"
                     rec = " ★" if size == recommended_model else ""
                     display_text = (
@@ -619,24 +627,27 @@ class SettingsDialog(Gtk.Dialog):
                     )
                     if is_downloaded:
                         downloaded_models.append(size)
-                    if smallest_model is None:
-                        smallest_model = size
-                else:
-                    display_text = size.capitalize()
+                
                 # Use lowercase as ID, display text with info
                 self.model_combo.append(size.capitalize(), display_text)
+                
+                if smallest_model is None:
+                    smallest_model = size
 
             # Determine which model to select:
-            # 1. If saved model is downloaded, use it
-            # 2. Else if any model is downloaded, use the first (smallest) downloaded
-            # 3. Else use the smallest model (but don't auto-download)
+            # 1. If saved model is valid for this engine, use it
+            # 2. Else if any model is downloaded (local engines), use the first one
+            # 3. Else use the first available model in the list
             saved_model = self.current_model_size.lower()
-            if saved_model in downloaded_models:
+            engine_models_lower = [m.lower() for m in ENGINE_MODELS[engine]]
+            
+            if saved_model in engine_models_lower:
                 model_to_set = saved_model.capitalize()
             elif downloaded_models:
                 model_to_set = downloaded_models[0].capitalize()
             else:
-                model_to_set = smallest_model.capitalize() if smallest_model else "Small"
+                # Default to first model in the list if nothing else matches
+                model_to_set = ENGINE_MODELS[engine][0].capitalize() if ENGINE_MODELS[engine] else "Small"
 
             logger.info(
                 f"Setting active model to: {model_to_set} (saved={saved_model}, downloaded={downloaded_models})"
@@ -649,14 +660,23 @@ class SettingsDialog(Gtk.Dialog):
                 model = self.model_combo.get_model()
                 model_found = False
                 for i, row in enumerate(model):
-                    if row[0].lower() == model_to_set.lower():
+                    # Check if the ID (column 0) matches
+                    if row[0] == model_to_set:
                         self.model_combo.set_active(i)
                         model_found = True
-                        logger.info(f"Set model by index {i}")
                         break
+                
+                if not model_found:
+                    # Try case-insensitive match on ID
+                    for i, row in enumerate(model):
+                        if row[0].lower() == model_to_set.lower():
+                            self.model_combo.set_active(i)
+                            model_found = True
+                            logger.info(f"Set model by index {i} (case-insensitive)")
+                            break
 
                 # If still not found, default to first
-                if not model_found and len(ENGINE_MODELS[engine]) > 0:
+                if not model_found and len(model) > 0:
                     logger.warning(
                         f"Model '{model_to_set}' not found in options, defaulting to first"
                     )
@@ -767,6 +787,14 @@ class SettingsDialog(Gtk.Dialog):
         try:
             # Update config manager
             self.config_manager.update_speech_recognition_settings(settings)
+            
+            # Update API keys
+            api_keys = {
+                "deepgram": self.deepgram_entry.get_text(),
+                "grok": self.grok_entry.get_text(),
+            }
+            self.config_manager.update_api_keys(api_keys)
+            
             self.config_manager.save_settings()
 
             # Reconfigure speech engine (don't stop/start if idle)

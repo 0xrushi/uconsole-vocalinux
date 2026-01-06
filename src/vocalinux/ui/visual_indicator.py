@@ -209,5 +209,6 @@ class FireOrb(Gtk.Application):
         window.set_skip_pager_hint(True)
         window.set_accept_focus(False)
 
-app = FireOrb()
-app.run(sys.argv)
+if __name__ == "__main__":
+    app = FireOrb()
+    app.run(sys.argv)

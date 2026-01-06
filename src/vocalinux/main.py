@@ -48,14 +48,11 @@ def check_dependencies():
     missing_deps = []
 
     try:
-        import gi
-
-        gi.require_version("Gtk", "3.0")
-        gi.require_version("AppIndicator3", "0.1")
-        from gi.repository import AppIndicator3, Gtk
+        from .utils.gtk_appindicator import load_gtk_appindicator
+        load_gtk_appindicator()
     except (ImportError, ValueError) as e:
         missing_deps.append(
-            "GTK3 and AppIndicator3 (install with: sudo apt install python3-gi gir1.2-appindicator3-0.1)"
+            "GTK3 and AppIndicator3 (install with: sudo apt install python3-gi gir1.2-appindicator3-0.1 or gir1.2-ayatanaappindicator3-0.1)"
         )
 
     try:

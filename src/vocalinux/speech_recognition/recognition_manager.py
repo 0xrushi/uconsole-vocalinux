@@ -165,6 +165,7 @@ class SpeechRecognitionManager:
             self._model_initialized = False
         else:
             self._model_initialized = True
+            self.model = "deepgram-api"
             logger.info("Deepgram engine initialized (API key found)")
 
     def _init_grok(self):
@@ -183,6 +184,7 @@ class SpeechRecognitionManager:
             self._model_initialized = False
         else:
             self._model_initialized = True
+            self.model = "grok-api"
             logger.info("Grok engine initialized (API key found)")
 
 
@@ -949,14 +951,10 @@ class SpeechRecognitionManager:
     def start_visual_indicator(self):
         """Start the visual indicator script."""
         try:
-            script_path = os.path.join(os.getcwd(), "scripts", "glowing_star.py")
-            if not os.path.exists(script_path):
-                logger.warning(f"Visual indicator script not found at {script_path}")
-                return
-
             if self.visual_process is None:
+                # Run the visual indicator as a module
                 self.visual_process = subprocess.Popen(
-                    [sys.executable, script_path],
+                    [sys.executable, "-m", "vocalinux.ui.visual_indicator"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )
@@ -1014,6 +1012,10 @@ class SpeechRecognitionManager:
 
         if model_size is not None and model_size != self.model_size:
             self.model_size = model_size
+            restart_needed = True
+
+        # If model is not initialized (e.g. missing API key or model file), force a restart/init attempt
+        if not self._model_initialized:
             restart_needed = True
 
         # Update VOSK specific params if provided
