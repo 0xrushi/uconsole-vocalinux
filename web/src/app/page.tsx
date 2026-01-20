@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import Image from "next/image";
-import { LiveDemo } from "@/components/live-demo";
+import { useDoublePress } from "@/hooks/use-double-press";
+import { DictationOverlay } from "@/components/dictation-overlay";
 import {
   Mic,
   Terminal,
@@ -30,21 +30,17 @@ import {
   Volume2,
   Sparkles,
   Heart,
-  ExternalLink,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { VocalinuxLogo } from "@/components/icons";
 import SyntaxHighlighter from "react-syntax-highlighter";
 import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 import { useInView } from "react-intersection-observer";
 
-// The one-liner install command (split into three lines for display)
-const oneClickInstallCommand = `curl \\
-  -fsSL https://raw.githubusercontent.com/jatinkrmalik/vocalinux/main/install.sh \\
-  | bash`;
+// The one-liner install command
+const oneClickInstallCommand = `curl -fsSL https://raw.githubusercontent.com/jatinkrmalik/vocalinux/main/install.sh | bash`;
 
-const oneClickInstallNoWhisper = `curl \\
-  -fsSL https://raw.githubusercontent.com/jatinkrmalik/vocalinux/main/install.sh \\
-  | bash -s -- --no-whisper`;
+const oneClickInstallNoWhisper = `curl -fsSL https://raw.githubusercontent.com/jatinkrmalik/vocalinux/main/install.sh | bash -s -- --no-whisper`;
 
 const FeatureCard = ({
   icon,
@@ -135,6 +131,13 @@ export default function HomePage() {
   const [stars, setStars] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const { isActive: isDictating, resetActive: resetDictation } = useDoublePress({
+    key: "Control",
+    onDoublePress: () => {
+      console.log("Double Ctrl press detected!");
+    },
+  });
+
   useEffect(() => {
     // Fetch actual GitHub stars
     fetch("https://api.github.com/repos/jatinkrmalik/vocalinux")
@@ -151,8 +154,8 @@ export default function HomePage() {
   }, []);
 
   const navLinks = [
-    { href: "#demo", label: "Demo" },
     { href: "#features", label: "Features" },
+    { href: "#demo", label: "Demo" },
     { href: "#install", label: "Install" },
     { href: "#voice-commands", label: "Commands" },
     { href: "#faq", label: "FAQ" },
@@ -160,20 +163,16 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-zinc-50 to-white dark:from-zinc-900 dark:to-zinc-950">
+      {/* Dictation Overlay */}
+      <DictationOverlay isActive={isDictating} onAnimationComplete={resetDictation} />
+
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <a href="/" className="flex items-center gap-2 group">
-            <Image
-              src="/vocalinux.svg"
-              alt="Vocalinux Logo"
-              width={32}
-              height={32}
-              className="h-7 w-7 sm:h-8 sm:w-8 transition-transform group-hover:scale-110"
-              priority
-            />
+            <VocalinuxLogo className="h-7 w-7 sm:h-8 sm:w-8 text-primary transition-transform group-hover:scale-110" />
             <span className="font-bold text-lg sm:text-xl">Vocalinux</span>
-            <span className="hidden sm:inline-block text-xs bg-gradient-to-r from-primary/20 to-green-500/20 text-primary border border-primary/30 px-2.5 py-1 rounded-full font-semibold shadow-sm shadow-primary/20">
+            <span className="hidden sm:inline-block text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
               v0.2.0 Alpha
             </span>
           </a>
@@ -256,7 +255,7 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="relative pt-28 sm:pt-36 pb-16 sm:pb-24 px-4 sm:px-6 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5 dark:from-primary/10 dark:to-purple-500/10" />
-
+        
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div
@@ -297,7 +296,7 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
                 <a
                   href="#install"
-                  className="inline-flex items-center justify-center gap-2 bg-primary text-white dark:text-zinc-900 hover:bg-primary/90 px-8 py-4 rounded-xl text-lg font-semibold transition-all hover:scale-105 shadow-lg shadow-primary/25"
+                  className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-4 rounded-xl text-lg font-semibold transition-all hover:scale-105 shadow-lg shadow-primary/25"
                 >
                   <Download className="h-5 w-5" />
                   Install Now — It&apos;s Free
@@ -312,58 +311,29 @@ export default function HomePage() {
               </div>
             </motion.div>
 
-            {/* One-Click Install Box - Redesigned */}
+            {/* One-Click Install Box */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="w-full max-w-6xl mx-auto px-4"
+              className="max-w-3xl mx-auto"
             >
-              <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 rounded-2xl p-6 sm:p-8 shadow-2xl border border-zinc-800/50 backdrop-blur">
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="flex items-center justify-center h-10 w-10 rounded-full bg-green-500/20 flex-shrink-0">
+              <div className="bg-zinc-900 rounded-2xl p-6 shadow-2xl border border-zinc-800">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
                     <Terminal className="h-5 w-5 text-green-400" />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="text-lg font-semibold text-white text-left">Quick Install</h3>
-                    <p className="text-xs text-zinc-400 text-left">Copy & paste in your terminal</p>
-                  </div>
-                </div>
-
-                {/* Command box */}
-                <div className="bg-zinc-950/80 rounded-xl border border-zinc-800 overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800 bg-zinc-900/50">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2.5 w-2.5 rounded-full bg-red-500/70" />
-                      <div className="h-2.5 w-2.5 rounded-full bg-yellow-500/70" />
-                      <div className="h-2.5 w-2.5 rounded-full bg-green-500/70" />
-                    </div>
-                    <CopyButton text={oneClickInstallCommand} />
-                  </div>
-                  <div className="p-4 sm:p-5">
-                    <pre className="font-mono text-sm sm:text-base text-green-400 text-left whitespace-pre">
-<span className="text-zinc-500 select-none">$ </span>{oneClickInstallCommand}
-                    </pre>
-                  </div>
-                </div>
-
-                {/* Bottom info */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5 pt-5 border-t border-zinc-800/50">
-                  <p className="text-sm text-zinc-400">
-                    <span className="text-zinc-500">Compatible:</span> Ubuntu, Fedora, Debian, Arch & more
-                  </p>
-                  <div className="flex items-center gap-4 text-xs text-zinc-500">
-                    <span className="flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                      No sudo required
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Zap className="h-3.5 w-3.5 text-yellow-500" />
-                      ~5-10 min
+                    <span className="text-sm font-medium text-zinc-300">
+                      One-Click Install
                     </span>
                   </div>
+                  <CopyButton text={oneClickInstallCommand} />
                 </div>
+                <div className="bg-zinc-950 rounded-lg p-4 font-mono text-sm sm:text-base text-green-400 overflow-x-auto">
+                  <span className="text-zinc-500">$</span> {oneClickInstallCommand}
+                </div>
+                <p className="text-xs text-zinc-500 mt-3 text-center">
+                  Works on Ubuntu 22.04+, Fedora, Debian, and most Linux distros. Takes ~5-10 min.
+                </p>
               </div>
             </motion.div>
 
@@ -395,22 +365,54 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Demo Section - Live Interactive Demo */}
+      {/* Demo Video Section */}
       <section id="demo" className="py-16 sm:py-24 px-4 sm:px-6 bg-zinc-50 dark:bg-zinc-900/50">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <FadeInSection>
             <div className="text-center mb-12">
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
-                Try It Yourself
+                See It In Action
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Experience voice-to-text right here in your browser. Click the microphone and start speaking!
+                Double-tap Ctrl, speak naturally, and watch your words appear instantly. It&apos;s that simple.
               </p>
             </div>
           </FadeInSection>
 
           <FadeInSection delay={0.1}>
-            <LiveDemo />
+            <div className="relative aspect-video rounded-2xl overflow-hidden shadow-2xl bg-zinc-900">
+              {/* Placeholder for demo video - using animated mockup */}
+              <div className="absolute inset-0 flex flex-col">
+                {/* Terminal-like header */}
+                <div className="bg-zinc-800 px-4 py-3 flex items-center gap-2">
+                  <div className="flex gap-2">
+                    <div className="h-3 w-3 rounded-full bg-red-500" />
+                    <div className="h-3 w-3 rounded-full bg-yellow-500" />
+                    <div className="h-3 w-3 rounded-full bg-green-500" />
+                  </div>
+                  <span className="text-sm text-zinc-400 ml-4">Vocalinux Demo</span>
+                </div>
+                
+                {/* Demo content */}
+                <div className="flex-1 flex items-center justify-center p-8">
+                  <div className="text-center">
+                    <motion.div
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="inline-flex items-center justify-center h-24 w-24 rounded-full bg-primary/20 mb-6"
+                    >
+                      <Mic className="h-12 w-12 text-primary" />
+                    </motion.div>
+                    <p className="text-zinc-300 text-lg mb-4">
+                      Press <kbd className="px-2 py-1 bg-zinc-700 rounded text-sm mx-1">Ctrl</kbd> twice to start dictating
+                    </p>
+                    <p className="text-zinc-500 text-sm">
+                      Try it right now! This page has the demo built-in.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </FadeInSection>
 
           {/* Key demo points */}
@@ -420,7 +422,7 @@ export default function HomePage() {
                 {
                   icon: <Keyboard className="h-6 w-6 text-primary" />,
                   title: "Double-tap Ctrl",
-                  description: "In the real app, just double-tap Ctrl to start dictating anywhere",
+                  description: "Simple, universal activation that works in any app",
                 },
                 {
                   icon: <Zap className="h-6 w-6 text-primary" />,
@@ -458,7 +460,7 @@ export default function HomePage() {
                 Why Choose Vocalinux?
               </h2>
               <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-                Finally, Linux users get the voice dictation experience they deserve —
+                Finally, Linux users get the voice dictation experience they deserve — 
                 no compromises on privacy, no cloud dependencies, just pure productivity.
               </p>
             </div>
@@ -506,7 +508,7 @@ export default function HomePage() {
                     The Linux Voice Gap, Solved
                   </h3>
                   <p className="text-muted-foreground mb-6">
-                    While macOS and Windows have had built-in voice dictation for years,
+                    While macOS and Windows have had built-in voice dictation for years, 
                     Linux users have been left behind — until now.
                   </p>
                   <ul className="space-y-3">
@@ -527,7 +529,7 @@ export default function HomePage() {
                   <div className="relative">
                     <div className="bg-white dark:bg-zinc-800 rounded-2xl p-8 shadow-xl">
                       <div className="flex items-center gap-4 mb-6">
-                        <Image src="/vocalinux.svg" alt="Vocalinux" width={64} height={64} className="h-16 w-16" />
+                        <VocalinuxLogo className="h-16 w-16 text-primary" />
                         <div>
                           <div className="text-2xl font-bold">Vocalinux</div>
                           <div className="text-sm text-muted-foreground">
@@ -577,21 +579,25 @@ export default function HomePage() {
                     <div className="bg-green-500/10 p-2 rounded-lg">
                       <Sparkles className="h-5 w-5 text-green-500" />
                     </div>
-                    <div className="flex-1">
+                    <div>
                       <h3 className="text-xl font-semibold">Recommended: Full Install</h3>
                       <p className="text-sm text-muted-foreground">
                         Includes Whisper AI for best accuracy (~5-10 min)
                       </p>
                     </div>
-                    <CopyButton text={oneClickInstallCommand} />
                   </div>
-                  <SyntaxHighlighter
-                    language="bash"
-                    style={atomOneDark}
-                    className="rounded-lg text-sm sm:text-base"
-                  >
-                    {oneClickInstallCommand}
-                  </SyntaxHighlighter>
+                  <div className="relative">
+                    <SyntaxHighlighter
+                      language="bash"
+                      style={atomOneDark}
+                      className="rounded-lg text-sm sm:text-base"
+                    >
+                      {oneClickInstallCommand}
+                    </SyntaxHighlighter>
+                    <div className="absolute top-2 right-2">
+                      <CopyButton text={oneClickInstallCommand} />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Alternative install */}
@@ -600,21 +606,25 @@ export default function HomePage() {
                     <div className="bg-blue-500/10 p-2 rounded-lg">
                       <Zap className="h-5 w-5 text-blue-500" />
                     </div>
-                    <div className="flex-1">
+                    <div>
                       <h3 className="text-lg font-semibold">Quick Install (VOSK only)</h3>
                       <p className="text-sm text-muted-foreground">
                         Faster install, lighter on resources (~2-3 min)
                       </p>
                     </div>
-                    <CopyButton text={oneClickInstallNoWhisper} />
                   </div>
-                  <SyntaxHighlighter
-                    language="bash"
-                    style={atomOneDark}
-                    className="rounded-lg text-sm"
-                  >
-                    {oneClickInstallNoWhisper}
-                  </SyntaxHighlighter>
+                  <div className="relative">
+                    <SyntaxHighlighter
+                      language="bash"
+                      style={atomOneDark}
+                      className="rounded-lg text-sm"
+                    >
+                      {oneClickInstallNoWhisper}
+                    </SyntaxHighlighter>
+                    <div className="absolute top-2 right-2">
+                      <CopyButton text={oneClickInstallNoWhisper} />
+                    </div>
+                  </div>
                 </div>
 
                 {/* What the installer does */}
@@ -671,20 +681,16 @@ export default function HomePage() {
                 </ul>
               </div>
               <div className="bg-white dark:bg-zinc-800 p-6 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <Terminal className="h-5 w-5 text-primary" />
-                    Uninstall
-                  </h4>
-                  <CopyButton text="curl -fsSL https://raw.githubusercontent.com/jatinkrmalik/vocalinux/main/uninstall.sh | bash" />
-                </div>
+                <h4 className="font-semibold mb-4 flex items-center gap-2">
+                  <Terminal className="h-5 w-5 text-primary" />
+                  Uninstall
+                </h4>
                 <p className="text-sm text-muted-foreground mb-3">
                   Clean removal in one command:
                 </p>
-                <pre className="bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 px-4 py-3 rounded text-xs font-mono whitespace-pre overflow-x-auto">
-{`curl -fsSL \\
-  https://raw.githubusercontent.com/jatinkrmalik/vocalinux/main/uninstall.sh | bash`}
-                </pre>
+                <code className="block bg-zinc-100 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 px-4 py-2 rounded text-sm overflow-x-auto">
+                  curl -fsSL https://raw.githubusercontent.com/jatinkrmalik/vocalinux/main/uninstall.sh | bash
+                </code>
               </div>
             </div>
           </FadeInSection>
@@ -921,13 +927,13 @@ export default function HomePage() {
               Ready to Ditch Your Keyboard?
             </h2>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Join the growing community of Linux users who have discovered the power of voice dictation.
+              Join the growing community of Linux users who have discovered the power of voice dictation. 
               It&apos;s free, it&apos;s private, and it just works.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
                 href="#install"
-                className="inline-flex items-center justify-center gap-2 bg-primary text-white dark:text-zinc-900 hover:bg-primary/90 px-8 py-4 rounded-xl text-lg font-semibold transition-all hover:scale-105 shadow-lg shadow-primary/25"
+                className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-4 rounded-xl text-lg font-semibold transition-all hover:scale-105 shadow-lg shadow-primary/25"
               >
                 <Download className="h-5 w-5" />
                 Install Vocalinux
@@ -952,7 +958,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-12">
             <div className="md:col-span-2">
               <a href="/" className="flex items-center gap-2 mb-4">
-                <Image src="/vocalinux.svg" alt="Vocalinux" width={32} height={32} className="h-8 w-8" />
+                <VocalinuxLogo className="h-8 w-8 text-primary" />
                 <span className="text-xl font-bold">Vocalinux</span>
               </a>
               <p className="text-zinc-400 mb-4 max-w-md">
@@ -1051,7 +1057,7 @@ export default function HomePage() {
             <p className="text-zinc-500 text-sm flex items-center gap-1">
               Made with <Heart className="h-4 w-4 text-red-500" /> by{" "}
               <a
-                href="https://x.com/intent/user?screen_name=jatinkrmalik"
+                href="https://github.com/jatinkrmalik"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-zinc-400 hover:text-white transition-colors"
