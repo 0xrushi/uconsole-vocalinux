@@ -1,41 +1,54 @@
-import sys
 import math
 import random
-import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GLib, Gio
-import cairo
+import sys
+from typing import Any, Dict, List, Optional
 
-class FireOrb(Gtk.Application):
+import cairo
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gdk, GLib, Gtk
+
+
+class FireOrb:
+    """A small always-on-top fire orb overlay.
+
+    Note: GTK must run on the main thread. This is intentionally a plain
+    `Gtk.Window` wrapper (not a `Gtk.Application`) so it can be created/shown
+    from the existing GTK main loop used by the tray indicator.
+    """
+
     def __init__(self):
-        super().__init__(application_id="com.example.fireorb",
-                        flags=Gio.ApplicationFlags.FLAGS_NONE)
-        self.window = None
-        self.drawing_area = None
+        self.window: Optional[Gtk.Window] = None
+        self.drawing_area: Optional[Gtk.DrawingArea] = None
+        self._animation_source_id: Optional[int] = None
+
         self.ticks = 0
-        self.particles = []
+        self.particles: List[Dict[str, Any]] = []
         self.dragging = False
         self.drag_offset_x = 0
         self.drag_offset_y = 0
-        
-        # Initialize fire particles
+
         for _ in range(150):
-            self.particles.append({
-                'angle': random.uniform(0, 2 * math.pi),
-                'radius': random.uniform(0, 100),
-                'speed': random.uniform(0.5, 2.0),
-                'size': random.uniform(2, 8),
-                'life': random.uniform(0, 1),
-                'offset': random.uniform(0, 2 * math.pi)
-            })
-    
-    def do_activate(self):
-        if self.window:
+            self.particles.append(
+                {
+                    "angle": random.uniform(0, 2 * math.pi),
+                    "radius": random.uniform(0, 100),
+                    "speed": random.uniform(0.5, 2.0),
+                    "size": random.uniform(2, 8),
+                    "life": random.uniform(0, 1),
+                    "offset": random.uniform(0, 2 * math.pi),
+                }
+            )
+
+    def show(self):
+        if self.window is not None:
+            if self._animation_source_id is None:
+                self._animation_source_id = GLib.timeout_add(16, self.animate)
             self.window.present()
             return
-        
-        self.window = Gtk.ApplicationWindow(application=self)
-        self.window.set_title("Fire Orb")
+
+        self.window = Gtk.Window(title="Fire Orb")
         
         # Visual setup
         self.window.set_decorated(False)
@@ -63,7 +76,7 @@ class FireOrb(Gtk.Application):
         # Drawing area for fire animation
         self.drawing_area = Gtk.DrawingArea()
         self.drawing_area.set_size_request(400, 400)
-        self.drawing_area.connect('draw', self.draw_fire)
+        self.drawing_area.connect("draw", self.draw_fire)
         
         self.window.add(self.drawing_area)
         
@@ -72,16 +85,36 @@ class FireOrb(Gtk.Application):
                               Gdk.EventMask.BUTTON_RELEASE_MASK |
                               Gdk.EventMask.POINTER_MOTION_MASK)
         
-        self.window.connect('button-press-event', self.on_button_press)
-        self.window.connect('button-release-event', self.on_button_release)
-        self.window.connect('motion-notify-event', self.on_motion)
-        self.window.connect('destroy', self.on_window_destroy)
-        self.window.connect('realize', self.on_realize)
+        self.window.connect("button-press-event", self.on_button_press)
+        self.window.connect("button-release-event", self.on_button_release)
+        self.window.connect("motion-notify-event", self.on_motion)
+        self.window.connect("destroy", self.on_window_destroy)
+        self.window.connect("realize", self.on_realize)
         
         self.window.show_all()
-        
+
         # Animation loop - 60 FPS
-        GLib.timeout_add(16, self.animate)
+        self._animation_source_id = GLib.timeout_add(16, self.animate)
+
+    def hide(self):
+        if self.window is None:
+            return
+        self.window.hide()
+        if self._animation_source_id is not None:
+            GLib.source_remove(self._animation_source_id)
+            self._animation_source_id = None
+
+    def destroy(self):
+        if self._animation_source_id is not None:
+            GLib.source_remove(self._animation_source_id)
+            self._animation_source_id = None
+        if self.window is not None:
+            self.window.destroy()
+            self.window = None
+
+    # Backwards-compatible alias (older code called `.quit()`)
+    def quit(self):
+        self.destroy()
 
     def draw_fire(self, widget, cr):
         width = widget.get_allocated_width()
@@ -98,40 +131,40 @@ class FireOrb(Gtk.Application):
         # Draw fire particles
         for particle in self.particles:
             # Calculate position
-            angle = particle['angle'] + self.ticks * particle['speed'] * 0.02
-            radius = particle['radius'] * (1 - particle['life'] * 0.3)
+            angle = particle["angle"] + self.ticks * particle["speed"] * 0.02
+            radius = particle["radius"] * (1 - particle["life"] * 0.3)
             
             # Add flickering
-            flicker = math.sin(self.ticks * 0.1 + particle['offset']) * 10
+            flicker = math.sin(self.ticks * 0.1 + particle["offset"]) * 10
             x = center_x + math.cos(angle) * (radius + flicker)
-            y = center_y + math.sin(angle) * (radius + flicker) - particle['life'] * 30
+            y = center_y + math.sin(angle) * (radius + flicker) - particle["life"] * 30
             
             # Color based on life and position
-            if particle['life'] < 0.3:
+            if particle["life"] < 0.3:
                 # White hot core
                 r, g, b = 1.0, 1.0, 0.9
-                alpha = 0.9 * (1 - particle['life'] / 0.3)
-            elif particle['life'] < 0.6:
+                alpha = 0.9 * (1 - particle["life"] / 0.3)
+            elif particle["life"] < 0.6:
                 # Yellow-orange
                 r, g, b = 1.0, 0.8, 0.2
                 alpha = 0.8
             else:
                 # Red-orange edges
                 r, g, b = 1.0, 0.3, 0.0
-                alpha = 0.6 * (1 - (particle['life'] - 0.6) / 0.4)
+                alpha = 0.6 * (1 - (particle["life"] - 0.6) / 0.4)
             
             # Draw particle with glow
             for i in range(3):
                 cr.set_source_rgba(r, g * (1 - i * 0.3), b, alpha * (1 - i * 0.3))
-                cr.arc(x, y, particle['size'] * (1 + i), 0, 2 * math.pi)
+                cr.arc(x, y, particle["size"] * (1 + i), 0, 2 * math.pi)
                 cr.fill()
             
             # Update particle
-            particle['life'] = (particle['life'] + 0.01) % 1.0
-            if particle['life'] < 0.01:
-                particle['angle'] = random.uniform(0, 2 * math.pi)
-                particle['radius'] = random.uniform(0, 100)
-                particle['offset'] = random.uniform(0, 2 * math.pi)
+            particle["life"] = (particle["life"] + 0.01) % 1.0
+            if particle["life"] < 0.01:
+                particle["angle"] = random.uniform(0, 2 * math.pi)
+                particle["radius"] = random.uniform(0, 100)
+                particle["offset"] = random.uniform(0, 2 * math.pi)
         
         # Draw core glow layers
         pulse = (math.sin(self.ticks * 0.1) + 1) / 2
@@ -170,13 +203,13 @@ class FireOrb(Gtk.Application):
         return True
 
     def animate(self):
-        if not self.window or not self.window.get_visible():
-            return True
+        if not self.window:
+            return False
         
         self.ticks += 1
         
         # Force redraw
-        if self.drawing_area:
+        if self.drawing_area and self.window.get_visible():
             self.drawing_area.queue_draw()
         
         return True
@@ -202,7 +235,10 @@ class FireOrb(Gtk.Application):
         return False
     
     def on_window_destroy(self, window):
-        self.quit()
+        if self._animation_source_id is not None:
+            GLib.source_remove(self._animation_source_id)
+            self._animation_source_id = None
+        self.window = None
     
     def on_realize(self, window):
         window.set_skip_taskbar_hint(True)
@@ -210,5 +246,6 @@ class FireOrb(Gtk.Application):
         window.set_accept_focus(False)
 
 if __name__ == "__main__":
-    app = FireOrb()
-    app.run(sys.argv)
+    orb = FireOrb()
+    orb.show()
+    Gtk.main()

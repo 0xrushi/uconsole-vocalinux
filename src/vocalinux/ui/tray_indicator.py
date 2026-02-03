@@ -9,7 +9,6 @@ import logging
 import os
 import signal
 import sys
-import threading
 from typing import Callable, Dict, Optional
 
 import gi
@@ -30,6 +29,7 @@ from ..common_types import (
 from .config_manager import ConfigManager  # Added
 from .keyboard_shortcuts import KeyboardShortcutManager
 from .settings_dialog import SettingsDialog  # Added
+from .visual_indicator import FireOrb  # Fire orb animation
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +62,7 @@ class TrayIndicator:
         self,
         speech_engine: SpeechRecognitionManagerProtocol,
         text_injector: TextInjectorProtocol,
+        shortcut_manager: Optional[KeyboardShortcutManager] = None,
     ):
         """
         Initialize the system tray indicator.
@@ -74,10 +75,11 @@ class TrayIndicator:
         self.text_injector = text_injector
         self.config_manager = ConfigManager()  # Added: Initialize ConfigManager
 
+        # Initialize fire orb animation for recording visual feedback
+        self.fire_orb = None
+
         # Initialize keyboard shortcut manager
-        self.shortcut_manager = (
-            KeyboardShortcutManager()
-        )  # Pass config_manager - Removed config_manager argument
+        self.shortcut_manager = shortcut_manager or KeyboardShortcutManager()
 
         # Ensure icon directory exists
         os.makedirs(ICON_DIR, exist_ok=True)
@@ -119,7 +121,9 @@ class TrayIndicator:
             logger.warning(f"Missing icon files: {validation_results['missing_icons']}")
 
         if validation_results["missing_sounds"]:
-            logger.warning(f"Missing sound files: {validation_results['missing_sounds']}")
+            logger.warning(
+                f"Missing sound files: {validation_results['missing_sounds']}"
+            )
 
         # Log successful validation
         if (
@@ -144,7 +148,9 @@ class TrayIndicator:
 
             for name, path in self.icon_paths.items():
                 exists = os.path.exists(path)
-                logger.info(f"Icon '{name}' ({path}): {'exists' if exists else 'missing'}")
+                logger.info(
+                    f"Icon '{name}' ({path}): {'exists' if exists else 'missing'}"
+                )
 
         # Create the indicator with absolute path to the default icon
         self.indicator = AppIndicator3.Indicator.new_with_path(
@@ -227,20 +233,49 @@ class TrayIndicator:
             self.indicator.set_icon_full(self.icon_paths["default"], "Microphone off")
             self._set_menu_item_enabled("Start Voice Typing", True)
             self._set_menu_item_enabled("Stop Voice Typing", False)
+            # Hide fire orb when idle
+            self._hide_fire_orb()
         elif state == RecognitionState.LISTENING:
             self.indicator.set_icon_full(self.icon_paths["active"], "Microphone on")
             self._set_menu_item_enabled("Start Voice Typing", False)
             self._set_menu_item_enabled("Stop Voice Typing", True)
+            # Show fire orb animation when recording
+            self._show_fire_orb()
         elif state == RecognitionState.PROCESSING:
-            self.indicator.set_icon_full(self.icon_paths["processing"], "Processing speech")
+            self.indicator.set_icon_full(
+                self.icon_paths["processing"], "Processing speech"
+            )
             self._set_menu_item_enabled("Start Voice Typing", False)
             self._set_menu_item_enabled("Stop Voice Typing", True)
+            # Keep fire orb visible while processing
         elif state == RecognitionState.ERROR:
             self.indicator.set_icon_full(self.icon_paths["default"], "Error")
             self._set_menu_item_enabled("Start Voice Typing", True)
             self._set_menu_item_enabled("Stop Voice Typing", False)
+            # Hide fire orb on error
+            self._hide_fire_orb()
 
         return False  # Remove idle callback
+
+    def _show_fire_orb(self):
+        """Show the fire orb animation overlay."""
+        if self.fire_orb is None:
+            try:
+                self.fire_orb = FireOrb()
+                self.fire_orb.show()
+                logger.info("Fire orb animation started")
+            except Exception as e:
+                logger.error(f"Failed to start fire orb animation: {e}")
+
+    def _hide_fire_orb(self):
+        """Hide the fire orb animation overlay."""
+        if self.fire_orb is not None:
+            try:
+                self.fire_orb.destroy()
+                self.fire_orb = None
+                logger.info("Fire orb animation stopped")
+            except Exception as e:
+                logger.error(f"Failed to stop fire orb animation: {e}")
 
     def _set_menu_item_enabled(self, label: str, enabled: bool):
         """
@@ -296,7 +331,10 @@ class TrayIndicator:
     def _on_settings_dialog_response(self, dialog, response):
         """Handle responses from the settings dialog."""
         # With auto-apply, we just close the dialog on any response
-        if response == Gtk.ResponseType.CLOSE or response == Gtk.ResponseType.DELETE_EVENT:
+        if (
+            response == Gtk.ResponseType.CLOSE
+            or response == Gtk.ResponseType.DELETE_EVENT
+        ):
             logger.info("Settings dialog closed.")
             dialog.destroy()
 
@@ -327,7 +365,7 @@ class TrayIndicator:
 
         # Comments with better formatting
         about_dialog.set_comments(
-            f"{__description__}\n\n" "🌟 Open Source Project\n" "Contributions Welcome!"
+            f"{__description__}\n\n🌟 Open Source Project\nContributions Welcome!"
         )
 
         about_dialog.set_website(__url__)
@@ -339,7 +377,9 @@ class TrayIndicator:
         if os.path.exists(logo_path):
             try:
                 pixbuf = GdkPixbuf.Pixbuf.new_from_file(logo_path)
-                scaled_pixbuf = pixbuf.scale_simple(128, 128, GdkPixbuf.InterpType.BILINEAR)
+                scaled_pixbuf = pixbuf.scale_simple(
+                    128, 128, GdkPixbuf.InterpType.BILINEAR
+                )
                 about_dialog.set_logo(scaled_pixbuf)
             except Exception as e:
                 logger.warning(f"Failed to load or scale logo: {e}")
@@ -356,6 +396,8 @@ class TrayIndicator:
     def _quit(self):
         """Quit the application."""
         logger.info("Quitting application")
+
+        self._hide_fire_orb()
 
         # Stop the keyboard shortcut manager
         self.shortcut_manager.stop()

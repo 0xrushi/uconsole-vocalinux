@@ -26,7 +26,20 @@ from conftest import mock_audio_feedback
 # Update import paths to use the new package structure
 from vocalinux.common_types import RecognitionState
 from vocalinux.speech_recognition.command_processor import CommandProcessor
-from vocalinux.speech_recognition.recognition_manager import MODELS_DIR, SpeechRecognitionManager
+from vocalinux.speech_recognition.recognition_manager import (
+    MODELS_DIR,
+    SpeechRecognitionManager,
+)
+
+# Restore stdlib tempfile for other tests. recognition_manager already imported
+# and holds references to the mocked module it imported.
+try:
+    sys.modules.pop("tempfile", None)
+    import tempfile as _real_tempfile  # noqa: F401
+
+    sys.modules["tempfile"] = _real_tempfile
+except Exception:
+    pass
 
 
 class TestSpeechRecognition(unittest.TestCase):
@@ -40,7 +53,9 @@ class TestSpeechRecognition(unittest.TestCase):
         self.mockMakeDirs = patch("os.makedirs")
         self.mockThread = patch("threading.Thread")
         self.mockPath = patch.object(SpeechRecognitionManager, "_get_vosk_model_path")
-        self.mockDownload = patch.object(SpeechRecognitionManager, "_download_vosk_model")
+        self.mockDownload = patch.object(
+            SpeechRecognitionManager, "_download_vosk_model"
+        )
         self.mockCmdProcessor = patch.object(CommandProcessor, "process_text")
 
         # Start all patches

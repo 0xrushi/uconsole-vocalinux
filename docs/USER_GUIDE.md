@@ -16,6 +16,52 @@ After installing Vocalinux (see the [Installation Guide](INSTALL.md)), you can s
 4. **Speak clearly**: As you speak, your words will be transcribed into the currently focused application
 5. **Stop voice typing**: Click the tray icon and select "Stop Voice Typing" when you're done, or use the double-tap Ctrl keyboard shortcut again
 
+### Popup After Record (Optional)
+
+You can run Vocalinux in a mode where it does not type while recording. Instead, it shows a popup when recording completes so you can edit/correct the transcript first.
+
+```bash
+vocalinux --popup-after-record
+```
+
+To use a terminal-style popup (recommended for floating window managers like Openbox/i3wm):
+
+```bash
+vocalinux --popup-after-record --popup-ui terminal
+```
+
+To use the GTK popup:
+
+```bash
+vocalinux --popup-after-record --popup-ui gtk
+```
+
+In this mode:
+
+- Vocalinux does **not** type while recording.
+- When you stop recording, a popup opens with the transcript in an editable field.
+- Press `Esc` to enable hotkeys:
+  - `a`: Correct for email
+  - `b`: Correct for post/message
+  - `c`: Correct bash command
+- Press `Enter` to copy the text to the clipboard and close the popup.
+- After the popup closes, you have 20 seconds to press `ppp` to paste into the focused window.
+
+Openbox floating hint (terminal popup): set a rule to float windows with WM_CLASS `vocalinux-popup`.
+
+LLM settings are read from `~/.config/vocalinux/config.yaml`.
+
+Example:
+
+```yaml
+llm:
+  provider: gemini
+  model: gemini-1.5-flash
+  api_key_env: GEMINI_API_KEY
+  timeout_seconds: 20
+  temperature: 0.2
+```
+
 ### Understanding the Status Icons
 
 - **Microphone off** (gray): Voice typing is inactive
@@ -56,6 +102,8 @@ Vocalinux uses a double-tap Ctrl keyboard shortcut for starting and stopping voi
 
 - **Double-tap Ctrl**: Quickly press the Ctrl key twice to toggle voice typing on or off
 - The time between taps should be less than 0.3 seconds to be recognized as a double-tap
+
+When using `--popup-after-record`, `ppp` is enabled only after closing the popup with `Enter` and expires after 20 seconds.
 
 ### Model Settings
 

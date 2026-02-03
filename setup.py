@@ -49,6 +49,7 @@ INSTALL_REQUIRES = [
     "pydub>=0.25.1",
     "pynput>=1.7.6",
     "requests>=2.28.0",
+    "pyyaml>=6.0",
     "tqdm>=4.64.0",
     "numpy>=1.22.0",
     "pyaudio>=0.2.13",

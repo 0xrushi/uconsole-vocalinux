@@ -8,7 +8,7 @@ start/stop speech recognition with a double-tap of the Ctrl key.
 import logging
 import threading
 import time
-from typing import Callable
+from typing import Callable, Optional
 
 # Make keyboard a module-level attribute first, even if it's None
 # This will ensure the attribute exists for patching in tests
@@ -46,8 +46,18 @@ class KeyboardShortcutManager:
         self.double_tap_callback = None
         self.double_tap_threshold = 0.3  # seconds between taps to count as double-tap
 
+        # Paste arming + triple-key tracking (used by popup-after-record)
+        self._paste_callback: Optional[Callable[[], None]] = None
+        self._paste_armed_until = 0.0
+        self._paste_ppp_times = []  # list[float]
+        self._ppp_total_window = 0.6  # seconds for 3 presses
+        self._ppp_trigger_cooldown = 0.5
+        self._last_ppp_trigger_time = 0.0
+
         if not KEYBOARD_AVAILABLE:
-            logger.error("Keyboard shortcut libraries not available. Shortcuts will not work.")
+            logger.error(
+                "Keyboard shortcut libraries not available. Shortcuts will not work."
+            )
             return
 
     def start(self):
@@ -66,7 +76,9 @@ class KeyboardShortcutManager:
 
         try:
             # Start keyboard listener in a separate thread
-            self.listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
+            self.listener = keyboard.Listener(
+                on_press=self._on_press, on_release=self._on_release
+            )
             self.listener.daemon = True
             self.listener.start()
 
@@ -107,6 +119,29 @@ class KeyboardShortcutManager:
         self.double_tap_callback = callback
         logger.info("Registered shortcut: Double-tap Ctrl")
 
+    def register_paste_callback(self, callback: Callable[[], None]):
+        """Register a callback for paste-on-ppp (armed-only)."""
+        self._paste_callback = callback
+        logger.info("Registered shortcut: ppp (armed-only)")
+
+    def arm_paste(self, duration_seconds: float = 20.0):
+        """Arm the triple-press 'p' detector for a limited time."""
+        if duration_seconds <= 0:
+            self.disarm_paste()
+            return
+        self._paste_armed_until = time.time() + float(duration_seconds)
+        self._paste_ppp_times = []
+        logger.debug(f"Paste armed for {duration_seconds:.1f}s")
+
+    def disarm_paste(self):
+        """Disarm the triple-press 'p' detector."""
+        self._paste_armed_until = 0.0
+        self._paste_ppp_times = []
+
+    @property
+    def paste_armed(self) -> bool:
+        return time.time() < self._paste_armed_until
+
     def _on_press(self, key):
         """
         Handle key press events.
@@ -121,12 +156,51 @@ class KeyboardShortcutManager:
                 current_time = time.time()
                 if current_time - self.last_ctrl_press_time < self.double_tap_threshold:
                     # This is a double-tap Ctrl
-                    if self.double_tap_callback and current_time - self.last_trigger_time > 0.5:
+                    if (
+                        self.double_tap_callback
+                        and current_time - self.last_trigger_time > 0.5
+                    ):
                         logger.debug("Double-tap Ctrl detected")
                         self.last_trigger_time = current_time
                         # Run callback in a separate thread to avoid blocking
-                        threading.Thread(target=self.double_tap_callback, daemon=True).start()
+                        threading.Thread(
+                            target=self.double_tap_callback, daemon=True
+                        ).start()
                 self.last_ctrl_press_time = current_time
+
+            # Triple-press 'p' (armed-only)
+            if self.paste_armed and self._paste_callback is not None:
+                key_char = None
+                try:
+                    # pynput uses KeyCode for character keys
+                    key_char = getattr(key, "char", None)
+                except Exception:
+                    key_char = None
+
+                if key_char and key_char.lower() == "p":
+                    now = time.time()
+                    # Expire arm if needed
+                    if now >= self._paste_armed_until:
+                        self.disarm_paste()
+                    else:
+                        self._paste_ppp_times.append(now)
+                        # Keep only last 3
+                        if len(self._paste_ppp_times) > 3:
+                            self._paste_ppp_times = self._paste_ppp_times[-3:]
+
+                        if (
+                            len(self._paste_ppp_times) == 3
+                            and (self._paste_ppp_times[-1] - self._paste_ppp_times[0])
+                            <= self._ppp_total_window
+                            and (now - self._last_ppp_trigger_time)
+                            > self._ppp_trigger_cooldown
+                        ):
+                            logger.debug("ppp detected (armed)")
+                            self._last_ppp_trigger_time = now
+                            self.disarm_paste()
+                            threading.Thread(
+                                target=self._paste_callback, daemon=True
+                            ).start()
 
             # Add to currently pressed modifier keys (only for tracking Ctrl)
             if key in {
