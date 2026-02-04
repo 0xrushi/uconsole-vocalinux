@@ -24,10 +24,10 @@ You can run Vocalinux in a mode where it does not type while recording. Instead,
 vocalinux --popup-after-record
 ```
 
-To use a terminal-style popup (recommended for floating window managers like Openbox/i3wm):
+To use a terminal-style popup with a modern TUI interface (recommended for floating window managers like Openbox/i3wm):
 
 ```bash
-vocalinux --popup-after-record --popup-ui terminal
+vocalinux --popup-after-record --popup-ui textual
 ```
 
 To use the GTK popup:
@@ -47,7 +47,7 @@ In this mode:
 - Press `Enter` to copy the text to the clipboard and close the popup.
 - After the popup closes, you have 20 seconds to press `ppp` to paste into the focused window.
 
-Openbox floating hint (terminal popup): set a rule to float windows with WM_CLASS `vocalinux-popup`.
+Openbox floating hint (Textual popup): set a rule to float windows with WM_CLASS `vocalinux-popup`.
 
 LLM settings are read from `~/.config/vocalinux/config.yaml`.
 

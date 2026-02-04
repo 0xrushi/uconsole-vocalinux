@@ -118,7 +118,7 @@ class TestPopupAfterRecordFlow(unittest.TestCase):
         ti.inject_text.assert_called_with("\b\b\b")
         ti._inject_keyboard_shortcut.assert_called_with("ctrl+v")
 
-    def test_terminal_popup_arms_after_close(self):
+    def test_textual_popup_arms_after_close(self):
         import tempfile
 
         from vocalinux.ui import popup_after_record as mod
@@ -191,7 +191,7 @@ class TestPopupAfterRecordFlow(unittest.TestCase):
                     text_injector=ti,
                     shortcut_manager=shortcuts,
                     arm_seconds=20.0,
-                    ui="terminal",
+                    ui="textual",
                 )
 
                 speech.emit_state(RecognitionState.LISTENING)

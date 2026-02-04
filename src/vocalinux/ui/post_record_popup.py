@@ -66,18 +66,23 @@ class PostRecordPopup(Gtk.Window):
         self._buffer.set_text(initial_text or "")
         scroller.add(self._textview)
 
-        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        outer.pack_start(buttons, False, False, 0)
+        labels = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        outer.pack_start(labels, False, False, 0)
 
-        self._btn_email = Gtk.Button(label="[A] Correct for email")
-        self._btn_post = Gtk.Button(label="[B] Correct for post/message")
-        self._btn_bash = Gtk.Button(label="[C] Correct bash command")
-        self._btn_email.connect("clicked", lambda *_: self._trigger_correct("email"))
-        self._btn_post.connect("clicked", lambda *_: self._trigger_correct("post"))
-        self._btn_bash.connect("clicked", lambda *_: self._trigger_correct("bash"))
-        buttons.pack_start(self._btn_email, True, True, 0)
-        buttons.pack_start(self._btn_post, True, True, 0)
-        buttons.pack_start(self._btn_bash, True, True, 0)
+        self._label_email = Gtk.Label(label="[A] Correct for email")
+        self._label_post = Gtk.Label(label="[B] Correct for post/message")
+        self._label_bash = Gtk.Label(label="[C] Correct bash command")
+        self._label_copy = Gtk.Label(label="[Enter] Copy & Close")
+
+        # Style labels to look distinct
+        for label in [self._label_email, self._label_post, self._label_bash, self._label_copy]:
+            label.set_markup(f"<b>{label.get_text()}</b>")
+            label.set_halign(Gtk.Align.CENTER)
+
+        labels.pack_start(self._label_email, True, True, 0)
+        labels.pack_start(self._label_post, True, True, 0)
+        labels.pack_start(self._label_bash, True, True, 0)
+        labels.pack_start(self._label_copy, True, True, 0)
 
         self._status = Gtk.Label(label="")
         self._status.set_halign(Gtk.Align.START)
@@ -95,6 +100,7 @@ class PostRecordPopup(Gtk.Window):
 
     def _on_key_press(self, _widget, event: Gdk.EventKey):
         keyval = event.keyval
+        logger.debug(f"Key pressed: {keyval}, current mode: {self._command_mode}")
 
         if keyval == Gdk.KEY_Escape:
             self._command_mode = not self._command_mode
@@ -137,15 +143,8 @@ class PostRecordPopup(Gtk.Window):
     def _update_mode_ui(self):
         if self._command_mode:
             self._mode_label.set_markup("Mode: <b>Hotkeys</b> (a/b/c, Enter)")
-            self._btn_email.set_sensitive(not self._busy)
-            self._btn_post.set_sensitive(not self._busy)
-            self._btn_bash.set_sensitive(not self._busy)
         else:
             self._mode_label.set_markup("Mode: <b>Edit</b> (Esc for hotkeys)")
-            # Buttons are still clickable, but hotkeys are disabled
-            self._btn_email.set_sensitive(not self._busy)
-            self._btn_post.set_sensitive(not self._busy)
-            self._btn_bash.set_sensitive(not self._busy)
 
     def _get_text(self) -> str:
         start = self._buffer.get_start_iter()

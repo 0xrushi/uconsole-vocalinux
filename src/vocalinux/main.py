@@ -68,9 +68,9 @@ def parse_arguments():
     parser.add_argument(
         "--popup-ui",
         type=str,
-        choices=["terminal", "gtk"],
-        default="terminal",
-        help="Popup UI for --popup-after-record (terminal or gtk)",
+        choices=["textual", "gtk"],
+        default="textual",
+        help="Popup UI for --popup-after-record (textual or gtk)",
     )
     return parser.parse_args()
 

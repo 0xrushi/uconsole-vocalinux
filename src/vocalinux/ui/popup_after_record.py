@@ -24,7 +24,7 @@ from ..text_injection.text_injector import TextInjector
 from ..utils.clipboard import set_clipboard_text
 from .keyboard_shortcuts import KeyboardShortcutManager
 from .post_record_popup import PostRecordPopup, PopupResult
-from .terminal_launcher import build_terminal_launch
+from .terminal_launcher import build_terminal_launch, center_window
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ class PopupAfterRecordFlow:
             GLib.idle_add(self._show_popup, transcript, target_window_id)
 
     def _show_popup(self, transcript: str, target_window_id: Optional[str]):
-        ui = (self.ui or "terminal").lower()
+        ui = (self.ui or "textual").lower()
 
         if ui == "gtk":
 
@@ -97,7 +97,7 @@ class PopupAfterRecordFlow:
             popup.present()
             return False
 
-        # terminal UI
+        # Textual UI
         try:
             td = tempfile.mkdtemp(prefix="vocalinux-popup-")
             in_path = f"{td}/input.txt"
@@ -108,7 +108,7 @@ class PopupAfterRecordFlow:
             python_argv = [
                 sys.executable,
                 "-m",
-                "vocalinux.ui.terminal_popup",
+                "vocalinux.ui.textual_popup",
                 "--input",
                 in_path,
                 "--output",
@@ -117,6 +117,11 @@ class PopupAfterRecordFlow:
 
             spec = build_terminal_launch(python_argv=python_argv)
             proc = subprocess.Popen(spec.argv)
+            threading.Thread(
+                target=center_window,
+                kwargs={"title": "Vocalinux", "wm_class": "vocalinux-popup"},
+                daemon=True,
+            ).start()
 
             def waiter():
                 try:
@@ -136,11 +141,11 @@ class PopupAfterRecordFlow:
                     self._armed_window_id = target_window_id
                     self.shortcut_manager.arm_paste(self.arm_seconds)
                 except Exception as e:
-                    logger.warning(f"Terminal popup failed: {e}")
+                    logger.warning(f"Textual popup failed: {e}")
 
             threading.Thread(target=waiter, daemon=True).start()
         except Exception as e:
-            logger.warning(f"Failed to launch terminal popup: {e}")
+            logger.warning(f"Failed to launch popup: {e}")
 
         return False
 
