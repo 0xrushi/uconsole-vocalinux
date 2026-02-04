@@ -11,12 +11,22 @@ import signal
 import sys
 from typing import Callable, Dict, Optional
 
-import gi
+logger = logging.getLogger(__name__)
 
-# Import GTK
+import gi
 gi.require_version("Gtk", "3.0")
-gi.require_version("AppIndicator3", "0.1")
-from gi.repository import AppIndicator3, GdkPixbuf, GLib, GObject, Gtk
+from gi.repository import Gtk, GLib
+
+try:
+    gi.require_version("AppIndicator3", "0.1")
+    from gi.repository import AppIndicator3 as AppIndicator
+except (ValueError, ImportError):
+    try:
+        gi.require_version("AyatanaAppIndicator3", "0.1")
+        from gi.repository import AyatanaAppIndicator3 as AppIndicator
+    except (ValueError, ImportError):
+        logger.warning("Neither AppIndicator3 nor AyatanaAppIndicator3 found.")
+        AppIndicator = None
 
 # Import local modules - Use protocols to avoid circular imports
 from ..common_types import (
@@ -30,8 +40,6 @@ from .config_manager import ConfigManager  # Added
 from .keyboard_shortcuts import KeyboardShortcutManager
 from .settings_dialog import SettingsDialog  # Added
 from .visual_indicator import FireOrb  # Fire orb animation
-
-logger = logging.getLogger(__name__)
 
 # Define constants
 APP_ID = "vocalinux"
@@ -137,6 +145,12 @@ class TrayIndicator:
         """Initialize the system tray indicator."""
         logger.info("Initializing system tray indicator")
 
+        if AppIndicator is None:
+            logger.error(
+                "AppIndicator bindings not available; tray indicator cannot be initialized."
+            )
+            return False  # Remove idle callback
+
         # Log the icon directory path
         logger.info(f"Using icon directory: {ICON_DIR}")
         logger.info(f"Icon directory exists: {os.path.exists(ICON_DIR)}")
@@ -153,15 +167,15 @@ class TrayIndicator:
                 )
 
         # Create the indicator with absolute path to the default icon
-        self.indicator = AppIndicator3.Indicator.new_with_path(
+        self.indicator = AppIndicator.Indicator.new_with_path(
             APP_ID,
             DEFAULT_ICON,
-            AppIndicator3.IndicatorCategory.APPLICATION_STATUS,
+            AppIndicator.IndicatorCategory.APPLICATION_STATUS,
             ICON_DIR,
         )
 
         # Set the indicator status
-        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+        self.indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
 
         # Create the menu
         self.menu = Gtk.Menu()

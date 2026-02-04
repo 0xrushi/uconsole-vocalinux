@@ -265,7 +265,7 @@ install_system_dependencies() {
     print_info "Installing system dependencies..."
 
     # Define package names for different distributions
-    local APT_PACKAGES="python3-pip python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-appindicator3-0.1 libgirepository1.0-dev python3-dev portaudio19-dev python3-venv wget curl unzip"
+    local APT_PACKAGES="python3-pip python3-gi python3-gi-cairo libcairo2-dev gir1.2-gtk-3.0 gir1.2-appindicator3-0.1 libgirepository1.0-dev python3-dev portaudio19-dev python3-venv wget curl unzip"
     local DNF_PACKAGES="python3-pip python3-gobject gtk3 libappindicator-gtk3 gobject-introspection-devel python3-devel portaudio-devel python3-virtualenv wget curl unzip"
     local PACMAN_PACKAGES="python-pip python-gobject gtk3 libappindicator-gtk3 gobject-introspection python-cairo portaudio python-virtualenv wget curl unzip"
     local ZYPPER_PACKAGES="python3-pip python3-gobject python3-gobject-cairo gtk3 libappindicator-gtk3 gobject-introspection-devel python3-devel portaudio-devel python3-virtualenv wget curl unzip"
@@ -282,6 +282,13 @@ install_system_dependencies() {
                     MISSING_PACKAGES="$MISSING_PACKAGES $pkg"
                 fi
             done
+
+            # Dynamic check for libgirepository-2.0-dev (newer Debian/Ubuntu)
+            if apt-cache show libgirepository-2.0-dev >/dev/null 2>&1; then
+                if ! apt_package_installed "libgirepository-2.0-dev"; then
+                    MISSING_PACKAGES="$MISSING_PACKAGES libgirepository-2.0-dev"
+                fi
+            fi
 
             if [ -n "$MISSING_PACKAGES" ]; then
                 print_info "Installing missing packages:$MISSING_PACKAGES"
@@ -638,6 +645,31 @@ EOF
 chmod +x "$ACTIVATION_SCRIPT"
 print_info "Created activation script: $ACTIVATION_SCRIPT"
 
+# Function to detect correct GI_TYPELIB_PATH
+detect_gi_typelib_path() {
+    local ARCH_TRIPLET=""
+    if command_exists dpkg-architecture; then
+        ARCH_TRIPLET=$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)
+    fi
+
+    if [ -n "$ARCH_TRIPLET" ] && [ -d "/usr/lib/$ARCH_TRIPLET/girepository-1.0" ]; then
+        echo "/usr/lib/$ARCH_TRIPLET/girepository-1.0"
+    elif [ -d "/usr/lib/x86_64-linux-gnu/girepository-1.0" ]; then
+        echo "/usr/lib/x86_64-linux-gnu/girepository-1.0"
+    elif [ -d "/usr/lib/aarch64-linux-gnu/girepository-1.0" ]; then
+        echo "/usr/lib/aarch64-linux-gnu/girepository-1.0"
+    elif [ -d "/usr/lib/girepository-1.0" ]; then
+        echo "/usr/lib/girepository-1.0"
+    elif [ -d "/usr/lib64/girepository-1.0" ]; then
+        echo "/usr/lib64/girepository-1.0"
+    else
+        echo "/usr/lib/girepository-1.0"
+    fi
+}
+
+GI_TYPELIB_PATH=$(detect_gi_typelib_path)
+print_info "Detected GI_TYPELIB_PATH: $GI_TYPELIB_PATH"
+
 # Function to install Python package with error handling and verification
 install_python_package() {
     # Create a temporary directory for pip logs
@@ -648,7 +680,7 @@ install_python_package() {
     verify_package_installed() {
         local PKG_NAME="vocalinux"
         # Use venv python and set GI_TYPELIB_PATH for PyGObject
-        GI_TYPELIB_PATH=/usr/lib/girepository-1.0 "$VENV_DIR/bin/python" -c "import $PKG_NAME" 2>/dev/null
+        GI_TYPELIB_PATH="$GI_TYPELIB_PATH" "$VENV_DIR/bin/python" -c "import $PKG_NAME" 2>/dev/null
         return $?
     }
 
@@ -792,7 +824,7 @@ VOSK_CONFIG
         cat > "$HOME/.local/bin/vocalinux" << WRAPPER_EOF
 #!/bin/bash
 # Wrapper script for Vocalinux that sets required environment variables
-export GI_TYPELIB_PATH=/usr/lib/girepository-1.0
+export GI_TYPELIB_PATH=$GI_TYPELIB_PATH
 exec "$VENV_DIR/bin/vocalinux" "\$@"
 WRAPPER_EOF
         chmod +x "$HOME/.local/bin/vocalinux"
@@ -802,7 +834,7 @@ WRAPPER_EOF
         cat > "$HOME/.local/bin/vocalinux-gui" << WRAPPER_EOF
 #!/bin/bash
 # Wrapper script for Vocalinux GUI that sets required environment variables
-export GI_TYPELIB_PATH=/usr/lib/girepository-1.0
+export GI_TYPELIB_PATH=$GI_TYPELIB_PATH
 exec "$VENV_DIR/bin/vocalinux-gui" "\$@"
 WRAPPER_EOF
         chmod +x "$HOME/.local/bin/vocalinux-gui"
@@ -1001,6 +1033,31 @@ install_vosk_models() {
     fi
 }
 
+# Function to create default configuration files
+create_default_config() {
+    print_info "Creating default configuration..."
+
+    # Create config directory if it doesn't exist
+    mkdir -p "$CONFIG_DIR"
+
+    # Create config.yaml for LLM settings if it doesn't exist
+    local LLM_CONFIG_FILE="$CONFIG_DIR/config.yaml"
+    if [ ! -f "$LLM_CONFIG_FILE" ]; then
+        print_info "Creating default LLM configuration at $LLM_CONFIG_FILE"
+        cat > "$LLM_CONFIG_FILE" << 'LLM_CONFIG'
+llm:
+  provider: gemini
+  model: gemini-3-flash-preview
+  api_key_env: GEMINI_API_KEY
+  timeout_seconds: 20
+  temperature: 0.2
+LLM_CONFIG
+        print_info "NOTE: You need to set the GEMINI_API_KEY environment variable to use the LLM features."
+    else
+        print_info "LLM configuration already exists at $LLM_CONFIG_FILE"
+    fi
+}
+
 # Function to install desktop entry with error handling
 install_desktop_entry() {
     print_info "Installing desktop entry..."
@@ -1030,7 +1087,7 @@ install_desktop_entry() {
         print_warning "Desktop entry may not work correctly"
     else
         # Update Exec line to include GI_TYPELIB_PATH for PyGObject
-        sed -i "s|^Exec=vocalinux|Exec=env GI_TYPELIB_PATH=/usr/lib/girepository-1.0 $WRAPPER_SCRIPT|" "$DESKTOP_DIR/vocalinux.desktop" || {
+        sed -i "s|^Exec=vocalinux|Exec=env GI_TYPELIB_PATH=$GI_TYPELIB_PATH $WRAPPER_SCRIPT|" "$DESKTOP_DIR/vocalinux.desktop" || {
             print_warning "Failed to update desktop entry path"
         }
         print_info "Updated desktop entry to use wrapper script with GI_TYPELIB_PATH"
@@ -1135,6 +1192,9 @@ else
     print_info "Skipping VOSK model installation (--skip-models specified)"
     print_info "Models will be downloaded automatically on first application run"
 fi
+
+# Create default configuration
+create_default_config
 
 # Update icon cache
 update_icon_cache

@@ -99,15 +99,16 @@ def check_dependencies(*, popup_after_record: bool = False):
             missing_deps.append("pyyaml (install with: pip install pyyaml)")
 
     try:
-        import gi
+        # Support both upstream AppIndicator3 and Debian's Ayatana replacement.
+        from .utils.gtk_appindicator import load_gtk_appindicator
 
-        gi.require_version("Gtk", "3.0")
-        gi.require_version("AppIndicator3", "0.1")
-    except (ImportError, ValueError):
+        load_gtk_appindicator()
+    except (ImportError, ValueError, AttributeError):
         missing_deps.append(
-            "GTK3 and AppIndicator3 (install with: sudo apt install "
+            "GTK3 and AppIndicator (install with: sudo apt install "
             "python3-gi gir1.2-appindicator3-0.1) "
-            "Note: On Debian 13+ use gir1.2-ayatanaappindicator3-0.1 instead"
+            "If gir1.2-appindicator3-0.1 is unavailable (common on newer Debian), install "
+            "gir1.2-ayatanaappindicator3-0.1 instead"
         )
 
     if missing_deps:
