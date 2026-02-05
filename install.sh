@@ -1347,6 +1347,22 @@ print_installation_summary() {
     fi
 
     echo
+    print_info "Optional: improve bash command correction with history"
+    print_info "Vocalinux can reuse your shell command history to fix common dictation mistakes before calling the LLM."
+    if [ -f "$HOME/.bash_command_log.tsv" ] || [ -f "$HOME/.zsh_command_log.tsv" ]; then
+        print_info "Detected command log file(s):"
+        [ -f "$HOME/.bash_command_log.tsv" ] && print_info "  - $HOME/.bash_command_log.tsv"
+        [ -f "$HOME/.zsh_command_log.tsv" ] && print_info "  - $HOME/.zsh_command_log.tsv"
+    else
+        print_info "To enable, add the logger snippet to your ~/.bashrc or ~/.zshrc."
+    fi
+    if [ -f "$INSTALL_DIR/docs/COMMAND_LOGGING.md" ]; then
+        print_info "Setup guide: $INSTALL_DIR/docs/COMMAND_LOGGING.md"
+    else
+        print_info "Setup guide: docs/COMMAND_LOGGING.md (in the repo)"
+    fi
+
+    echo
     print_info "For more information, see: https://github.com/jatinkrmalik/vocalinux"
 
     if [ "$ISSUES" -gt 0 ]; then

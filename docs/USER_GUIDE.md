@@ -43,7 +43,7 @@ In this mode:
 - Press `Esc` to enable hotkeys:
   - `a`: Correct for email
   - `b`: Correct for post/message
-  - `c`: Correct bash command
+  - `c`: Correct bash command (optionally uses your shell command log; see `docs/COMMAND_LOGGING.md`)
 - Press `Enter` to copy the text to the clipboard and close the popup.
 - After the popup closes, you have 20 seconds to press `ppp` to paste into the focused window.
 

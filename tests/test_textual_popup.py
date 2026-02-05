@@ -19,7 +19,7 @@ class TestCorrectTextFunction(unittest.TestCase):
     @patch("vocalinux.ui.textual_popup.GeminiClient")
     def test_correct_text_calls_gemini_client(self, mock_client_class, mock_config):
         """Test that _correct_text calls GeminiClient with correct parameters."""
-        from vocalinux.ui.textual_popup import _correct_text
+        from vocalinux.ui.textual_popup import _correct_text, LlmResult
 
         # Mock config
         mock_cfg = MagicMock()
@@ -32,15 +32,20 @@ class TestCorrectTextFunction(unittest.TestCase):
 
         # Mock client
         mock_instance = MagicMock()
-        mock_instance.generate_text.return_value = "Corrected output"
+        mock_result = MagicMock()
+        mock_result.text = "Corrected output"
+        mock_result.usage = MagicMock()
+        mock_result.usage.total_tokens = 123
+        mock_instance.generate_text_with_usage.return_value = mock_result
         mock_client_class.return_value = mock_instance
 
         result = _correct_text("email", "test input")
 
         # Should create client and call generate_text
         mock_client_class.assert_called_once()
-        mock_instance.generate_text.assert_called_once()
-        self.assertEqual(result, "Corrected output")
+        mock_instance.generate_text_with_usage.assert_called_once()
+        self.assertIsInstance(result, LlmResult)
+        self.assertEqual(result.text, "Corrected output")
 
 
 class TestLLMCorrectionThreading(unittest.TestCase):

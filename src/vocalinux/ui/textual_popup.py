@@ -9,6 +9,7 @@ copies to clipboard and uses to arm the global paste trigger.
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 from dataclasses import dataclass
@@ -29,6 +30,9 @@ from textual.message import Message
 from ..llm.gemini_client import GeminiClient, GeminiRequest
 from ..llm.llm_config import load_llm_config
 from ..llm.prompts import prompt_correct_bash, prompt_correct_email, prompt_correct_post
+from ..llm.bash_history_retriever import CommandMatch, suggest_or_fix
+
+logger = logging.getLogger(__name__)
 
 
 def _read_text(path: str) -> str:
@@ -47,31 +51,74 @@ def _write_text(path: str, text: str) -> None:
         f.write(text)
 
 
-def _correct_text(mode: str, text: str) -> str:
+@dataclass(frozen=True)
+class LlmResult:
+    """LLM output with optional token usage."""
+
+    text: str
+    total_tokens: int | None
+
+
+def _correct_text(mode: str, text: str) -> LlmResult | CommandMatch:
     cfg = load_llm_config()
     if cfg.provider != "gemini":
         raise RuntimeError(f"Unsupported LLM provider: {cfg.provider}")
 
     if mode == "email":
         prompt = prompt_correct_email(text)
+        client = GeminiClient()
+        logger.info("Gemini prompt (email):\n%s", prompt)
+        result = client.generate_text_with_usage(
+            GeminiRequest(
+                model=cfg.model,
+                api_key=cfg.api_key,
+                prompt=prompt,
+                temperature=cfg.temperature,
+                timeout_seconds=cfg.timeout_seconds,
+            )
+        )
+        return LlmResult(text=result.text, total_tokens=result.usage.total_tokens if result.usage else None)
     elif mode == "post":
         prompt = prompt_correct_post(text)
+        client = GeminiClient()
+        logger.info("Gemini prompt (post):\n%s", prompt)
+        result = client.generate_text_with_usage(
+            GeminiRequest(
+                model=cfg.model,
+                api_key=cfg.api_key,
+                prompt=prompt,
+                temperature=cfg.temperature,
+                timeout_seconds=cfg.timeout_seconds,
+            )
+        )
+        return LlmResult(text=result.text, total_tokens=result.usage.total_tokens if result.usage else None)
     elif mode == "bash":
-        prompt = prompt_correct_bash(text)
+        client = GeminiClient()
+
+        def llm_fallback(query: str, current_dir: str | None) -> tuple[str, int | None]:
+            prompt = prompt_correct_bash(query, current_dir)
+            logger.info("Gemini prompt (bash):\n%s", prompt)
+            result = client.generate_text_with_usage(
+                GeminiRequest(
+                    model=cfg.model,
+                    api_key=cfg.api_key,
+                    prompt=prompt,
+                    temperature=cfg.temperature,
+                    timeout_seconds=cfg.timeout_seconds,
+                )
+            )
+            return result.text, result.usage.total_tokens if result.usage else None
+
+        match = suggest_or_fix(
+            query=text,
+            llm_fallback=llm_fallback,
+            current_dir=os.getcwd(),
+            k=1,
+            thr=0.70,
+        )
+        return match
     else:
         raise RuntimeError(f"Unknown correction mode: {mode}")
-
-    client = GeminiClient()
-    out = client.generate_text(
-        GeminiRequest(
-            model=cfg.model,
-            api_key=cfg.api_key,
-            prompt=prompt,
-            temperature=cfg.temperature,
-            timeout_seconds=cfg.timeout_seconds,
-        )
-    )
-    return out
 
 
 class ModeChanged(Message):
@@ -342,20 +389,59 @@ class TextualPopupApp(App[None]):
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(do_correction)
                 try:
-                    out = future.result(timeout=30.0)  # 30 second timeout
+                    result = future.result(timeout=30.0)  # 30 second timeout
                 except FutureTimeoutError:
                     raise TimeoutError("LLM call timed out after 30 seconds")
 
-            if not out or not out.strip():
-                raise RuntimeError("LLM returned empty output")
+            if isinstance(result, CommandMatch):
+                out = result.command
+                if not out or not out.strip():
+                    raise RuntimeError("LLM returned empty output")
 
-            # Update UI from main thread
-            def update_ui():
-                self._set_text(out)
-                self._set_status("Updated.", is_error=False)
-                self.is_busy = False
+                def update_ui():
+                    self._set_text(out)
+                    if result.from_history:
+                        extra = " ⭐ same dir" if result.from_same_directory else ""
+                        self._set_status(
+                            f"History match ({result.similarity:.0%}){extra}", is_error=False
+                        )
+                    else:
+                        tokens = (
+                            f" tokens={result.total_tokens}"
+                            if result.total_tokens is not None
+                            else ""
+                        )
+                        self._set_status(f"LLM corrected.{tokens}", is_error=False)
+                    self.is_busy = False
 
-            self.call_from_thread(update_ui)
+                self.call_from_thread(update_ui)
+            elif isinstance(result, LlmResult):
+                out = result.text
+                if not out or not out.strip():
+                    raise RuntimeError("LLM returned empty output")
+
+                def update_ui():
+                    self._set_text(out)
+                    tokens = (
+                        f" tokens={result.total_tokens}"
+                        if result.total_tokens is not None
+                        else ""
+                    )
+                    self._set_status(f"Updated.{tokens}", is_error=False)
+                    self.is_busy = False
+
+                self.call_from_thread(update_ui)
+            else:
+                out = result
+                if not out or not out.strip():
+                    raise RuntimeError("LLM returned empty output")
+
+                def update_ui():
+                    self._set_text(out)
+                    self._set_status("Updated.", is_error=False)
+                    self.is_busy = False
+
+                self.call_from_thread(update_ui)
 
         except Exception as e:
             error_msg = str(e)

@@ -7,12 +7,15 @@ import threading
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-import gi
+try:
+    import gi
 
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+except Exception:  # pragma: no cover - GTK not available in some test envs
+    Gdk = GLib = Gtk = None
 
-from ..llm.gemini_client import GeminiClient, GeminiRequest
+from ..llm.gemini_client import GeminiClient, GeminiRequest, GeminiUsage
 from ..llm.llm_config import load_llm_config
 from ..llm.prompts import prompt_correct_bash, prompt_correct_email, prompt_correct_post
 
@@ -24,7 +27,10 @@ class PopupResult:
     text: str
 
 
-class PostRecordPopup(Gtk.Window):
+_BASE_WINDOW = Gtk.Window if isinstance(getattr(Gtk, "Window", None), type) else object
+
+
+class PostRecordPopup(_BASE_WINDOW):
     def __init__(
         self,
         *,
@@ -47,7 +53,7 @@ class PostRecordPopup(Gtk.Window):
         header = Gtk.Label()
         header.set_markup(
             "<b>Recording complete.</b> Edit the text, then press <b>Esc</b> for hotkeys. "
-            "In hotkey mode: <b>a</b>/<b>b</b>/<b>c</b> to correct, <b>Enter</b> to copy & close."
+            "In hotkey mode: <b>a</b>/<b>b</b>/<b>c</b> to correct, <b>Enter</b> to copy &amp; close."
         )
         header.set_halign(Gtk.Align.START)
         header.set_line_wrap(True)
@@ -69,14 +75,17 @@ class PostRecordPopup(Gtk.Window):
         labels = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         outer.pack_start(labels, False, False, 0)
 
-        self._label_email = Gtk.Label(label="[A] Correct for email")
-        self._label_post = Gtk.Label(label="[B] Correct for post/message")
-        self._label_bash = Gtk.Label(label="[C] Correct bash command")
-        self._label_copy = Gtk.Label(label="[Enter] Copy & Close")
+        self._label_email = Gtk.Label()
+        self._label_email.set_markup("<b>[A] Correct for email</b>")
+        self._label_post = Gtk.Label()
+        self._label_post.set_markup("<b>[B] Correct for post/message</b>")
+        self._label_bash = Gtk.Label()
+        self._label_bash.set_markup("<b>[C] Correct bash command</b>")
+        self._label_copy = Gtk.Label()
+        self._label_copy.set_markup("<b>[Enter] Copy &amp; Close</b>")
 
-        # Style labels to look distinct
+        # Center align all labels
         for label in [self._label_email, self._label_post, self._label_bash, self._label_copy]:
-            label.set_markup(f"<b>{label.get_text()}</b>")
             label.set_halign(Gtk.Align.CENTER)
 
         labels.pack_start(self._label_email, True, True, 0)
@@ -186,8 +195,9 @@ class PostRecordPopup(Gtk.Window):
             else:
                 raise RuntimeError(f"Unknown correction mode: {mode}")
 
+            logger.info(f"Gemini prompt ({mode}):\n{prompt}")
             client = GeminiClient()
-            out = client.generate_text(
+            result = client.generate_text_with_usage(
                 GeminiRequest(
                     model=cfg.model,
                     api_key=cfg.api_key,
@@ -197,16 +207,19 @@ class PostRecordPopup(Gtk.Window):
                 )
             )
 
-            if not out:
+            if not result.text:
                 raise RuntimeError("LLM returned empty output")
 
-            GLib.idle_add(self._on_correct_success, out)
+            GLib.idle_add(self._on_correct_success, result.text, result.usage)
         except Exception as e:
             GLib.idle_add(self._on_correct_error, str(e))
 
-    def _on_correct_success(self, out: str):
+    def _on_correct_success(self, out: str, usage=None):
         self._set_text(out)
-        self._set_status("Updated.")
+        tokens_msg = ""
+        if usage and usage.total_tokens is not None:
+            tokens_msg = f" tokens={usage.total_tokens}"
+        self._set_status(f"Updated.{tokens_msg}")
         self._busy = False
         self._update_mode_ui()
         return False
