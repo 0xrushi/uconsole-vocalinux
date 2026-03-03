@@ -7,14 +7,21 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Mock GTK and other dependencies before importing vocalinux
-sys.modules["gi"] = MagicMock()
-sys.modules["gi.repository"] = MagicMock()
-sys.modules["vosk"] = MagicMock()
-sys.modules["pyaudio"] = MagicMock()
-sys.modules["numpy"] = MagicMock()
-sys.modules["pynput"] = MagicMock()
-sys.modules["pynput.keyboard"] = MagicMock()
+def _mock_platform_deps():
+    """Patch sys.modules for optional platform deps."""
+
+    return patch.dict(
+        sys.modules,
+        {
+            "gi": MagicMock(),
+            "gi.repository": MagicMock(),
+            "vosk": MagicMock(),
+            "pyaudio": MagicMock(),
+            "numpy": MagicMock(),
+            "pynput": MagicMock(),
+            "pynput.keyboard": MagicMock(),
+        },
+    )
 
 
 class TestWhisperSupport:
@@ -27,7 +34,9 @@ class TestWhisperSupport:
         torch_mock = MagicMock()
         torch_mock.cuda.is_available.return_value = False
 
-        with patch.dict(sys.modules, {"whisper": whisper_mock, "torch": torch_mock}):
+        with _mock_platform_deps(), patch.dict(
+            sys.modules, {"whisper": whisper_mock, "torch": torch_mock}
+        ):
             from vocalinux.speech_recognition.recognition_manager import (
                 SpeechRecognitionManager,
             )
@@ -64,7 +73,9 @@ class TestWhisperSupport:
         torch_mock = MagicMock()
         torch_mock.cuda.is_available.return_value = False
 
-        with patch.dict(sys.modules, {"whisper": whisper_mock, "torch": torch_mock}):
+        with _mock_platform_deps(), patch.dict(
+            sys.modules, {"whisper": whisper_mock, "torch": torch_mock}
+        ):
             from vocalinux.speech_recognition.recognition_manager import (
                 SpeechRecognitionManager,
             )

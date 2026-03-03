@@ -57,11 +57,25 @@ def parse_arguments():
         choices=["vosk", "whisper"],
         help="Speech recognition engine to use",
     )
-    parser.add_argument("--wayland", action="store_true", help="Force Wayland compatibility mode")
+    parser.add_argument(
+        "--wayland", action="store_true", help="Force Wayland compatibility mode"
+    )
+    parser.add_argument(
+        "--popup-after-record",
+        action="store_true",
+        help="After recording, show an editable popup; do not type while recording; paste only after closing popup and pressing ppp",
+    )
+    parser.add_argument(
+        "--popup-ui",
+        type=str,
+        choices=["textual", "gtk"],
+        default="textual",
+        help="Popup UI for --popup-after-record (textual or gtk)",
+    )
     return parser.parse_args()
 
 
-def check_dependencies():
+def check_dependencies(*, popup_after_record: bool = False):
     """Check for required dependencies and provide helpful error messages."""
     missing_deps = []
 
@@ -78,16 +92,23 @@ def check_dependencies():
     except ImportError:
         missing_deps.append("requests (install with: pip install requests)")
 
-    try:
-        import gi
+    if popup_after_record:
+        try:
+            import yaml  # noqa: F401
+        except ImportError:
+            missing_deps.append("pyyaml (install with: pip install pyyaml)")
 
-        gi.require_version("Gtk", "3.0")
-        gi.require_version("AppIndicator3", "0.1")
-    except (ImportError, ValueError):
+    try:
+        # Support both upstream AppIndicator3 and Debian's Ayatana replacement.
+        from .utils.gtk_appindicator import load_gtk_appindicator
+
+        load_gtk_appindicator()
+    except (ImportError, ValueError, AttributeError):
         missing_deps.append(
-            "GTK3 and AppIndicator3 (install with: sudo apt install "
+            "GTK3 and AppIndicator (install with: sudo apt install "
             "python3-gi gir1.2-appindicator3-0.1) "
-            "Note: On Debian 13+ use gir1.2-ayatanaappindicator3-0.1 instead"
+            "If gir1.2-appindicator3-0.1 is unavailable (common on newer Debian), install "
+            "gir1.2-ayatanaappindicator3-0.1 instead"
         )
 
     if missing_deps:
@@ -116,7 +137,11 @@ def main():
     logger.info("Logging system initialized")
 
     # Check dependencies first
-    if not check_dependencies():
+    # Be strict here: some tests use MagicMock for args, which would otherwise
+    # evaluate truthy for missing attributes.
+    popup_after_record = getattr(args, "popup_after_record", False) is True
+
+    if not check_dependencies(popup_after_record=popup_after_record):
         logger.error("Cannot start Vocalinux due to missing dependencies")
         sys.exit(1)
 
@@ -162,9 +187,13 @@ def main():
     silence_timeout = saved_settings.get("silence_timeout", 2.0)
     audio_device_index = audio_settings.get("device_index", None)
 
-    logger.info(f"Final settings: engine={engine}, language={language}, model={model_size}")
+    logger.info(
+        f"Final settings: engine={engine}, language={language}, model={model_size}"
+    )
     if audio_device_index is not None:
-        logger.info(f"Using audio device index={audio_device_index} (from saved config)")
+        logger.info(
+            f"Using audio device index={audio_device_index} (from saved config)"
+        )
 
     # Initialize main components
     logger.info("Initializing Vocalinux...")
@@ -183,24 +212,49 @@ def main():
         # Initialize text injection system
         text_system = text_injector.TextInjector(wayland_mode=args.wayland)
 
-        # Initialize action handler
-        action_handler = ActionHandler(text_system)
+        # Keyboard shortcuts are shared between tray and popup-after-record flow
+        from .ui.keyboard_shortcuts import KeyboardShortcutManager
 
-        # Create a wrapper function to track injected text for action handler
-        def text_callback_wrapper(text: str):
-            """Wrapper to track injected text and handle it."""
-            success = text_system.inject_text(text)
-            if success:
-                action_handler.set_last_injected_text(text)
+        shortcut_manager = KeyboardShortcutManager()
 
-        # Connect speech recognition to text injection and action handling
-        speech_engine.register_text_callback(text_callback_wrapper)
-        speech_engine.register_action_callback(action_handler.handle_action)
+        if popup_after_record:
+            # No live typing; buffer transcript and show popup on completion.
+            from .ui.popup_after_record import PopupAfterRecordFlow
+
+            popup_ui = getattr(args, "popup_ui", "terminal")
+            if not isinstance(popup_ui, str) or popup_ui.lower() not in {
+                "terminal",
+                "gtk",
+            }:
+                popup_ui = "terminal"
+
+            PopupAfterRecordFlow(
+                speech_engine=speech_engine,
+                text_injector=text_system,
+                shortcut_manager=shortcut_manager,
+                arm_seconds=20.0,
+                ui=popup_ui,
+            )
+        else:
+            # Initialize action handler
+            action_handler = ActionHandler(text_system)
+
+            # Create a wrapper function to track injected text for action handler
+            def text_callback_wrapper(text: str):
+                """Wrapper to track injected text and handle it."""
+                success = text_system.inject_text(text)
+                if success:
+                    action_handler.set_last_injected_text(text)
+
+            # Connect speech recognition to text injection and action handling
+            speech_engine.register_text_callback(text_callback_wrapper)
+            speech_engine.register_action_callback(action_handler.handle_action)
 
         # Initialize and start the system tray indicator
         indicator = tray_indicator.TrayIndicator(
             speech_engine=speech_engine,
             text_injector=text_system,
+            shortcut_manager=shortcut_manager,
         )
 
         # Start the GTK main loop

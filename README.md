@@ -2,6 +2,12 @@
 
 #### Voice-to-text for Linux, finally done right!
 
+> **uConsole (Raspberry Pi CM4) package**
+>
+> This repository is a packaged setup of Vocalinux for the ClockworkPi **uConsole** (Raspberry Pi **Compute Module 4**), intended for lightweight, on-device voice dictation / voice control.
+
+![ClockworkPi uConsole](https://i.redd.it/casual-uconsole-at-the-desk-v0-ebudhe45i2ue1.jpg?width=3024&format=pjpg&auto=webp&s=7e9a464555f9fa0bc76c89be58065fbb45432bae)
+
 <!-- Project Status -->
 [![Status: Alpha](https://img.shields.io/badge/Status-Alpha-orange)](https://github.com/jatinkrmalik/vocalinux)
 [![GitHub release](https://img.shields.io/github/v/release/jatinkrmalik/vocalinux?include_prereleases)](https://github.com/jatinkrmalik/vocalinux/releases)

@@ -99,7 +99,7 @@ const CopyButton = ({ text, className = "" }: { text: string; className?: string
   return (
     <button
       onClick={handleCopy}
-      className={`flex items-center gap-2 bg-zinc-700 hover:bg-zinc-600 text-white px-3 py-1.5 rounded text-sm transition-all ${className}`}
+      className={`inline-flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white ${className}`}
       aria-label={copied ? "Copied to clipboard" : "Copy to clipboard"}
     >
       {copied ? (
@@ -141,6 +141,11 @@ const FadeInSection = ({
     </motion.div>
   );
 };
+
+const primaryButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm sm:text-base font-semibold bg-foreground text-background border border-foreground/10 transition-colors hover:bg-foreground/90";
+const secondaryButtonClass =
+  "inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm sm:text-base font-semibold bg-background text-foreground border border-border transition-colors hover:bg-muted";
 
 export default function HomePage() {
   const [stars, setStars] = useState<number | null>(null);
@@ -326,14 +331,14 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
                 <a
                   href="#install"
-                  className="inline-flex items-center justify-center gap-2 bg-primary text-white dark:text-zinc-900 hover:bg-primary/90 px-8 py-4 rounded-xl text-lg font-semibold transition-all hover:scale-105 shadow-lg shadow-primary/25"
+                  className={primaryButtonClass}
                 >
                   <Download className="h-5 w-5" />
                   Install Now — It&apos;s Free
                 </a>
                 <a
                   href="#demo"
-                  className="inline-flex items-center justify-center gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 px-8 py-4 rounded-xl text-lg font-semibold transition-all"
+                  className={secondaryButtonClass}
                 >
                   <Play className="h-5 w-5" />
                   Watch Demo
@@ -371,7 +376,7 @@ export default function HomePage() {
                     <CopyButton text={oneClickInstallCommand} />
                   </div>
                   <div className="p-4 sm:p-5">
-                    <pre className="font-mono text-sm sm:text-base text-green-400 text-left whitespace-pre">
+                    <pre className="font-mono text-xs sm:text-sm text-green-400 text-left whitespace-pre-wrap break-words leading-relaxed">
                       <span className="text-zinc-500 select-none">$ </span>{oneClickInstallCommand}
                     </pre>
                   </div>
@@ -617,9 +622,9 @@ export default function HomePage() {
                   <div className="overflow-x-auto">
                     <CodeBlock
                       language="bash"
-                      className="rounded-lg text-sm sm:text-base"
-                      customStyle={{ margin: 0, maxWidth: '100%', overflowX: 'auto' }}
-                      wrapLongLines={false}
+                      className="rounded-lg text-xs sm:text-sm"
+                      customStyle={{ margin: 0, maxWidth: "100%", whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                      wrapLongLines
                     >
                       {oneClickInstallCommand}
                     </CodeBlock>
@@ -643,9 +648,9 @@ export default function HomePage() {
                   <div className="overflow-x-auto">
                     <CodeBlock
                       language="bash"
-                      className="rounded-lg text-sm"
-                      customStyle={{ margin: 0, maxWidth: '100%', overflowX: 'auto' }}
-                      wrapLongLines={false}
+                      className="rounded-lg text-xs sm:text-sm"
+                      customStyle={{ margin: 0, maxWidth: "100%", whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                      wrapLongLines
                     >
                       {oneClickInstallWhisperCpu}
                     </CodeBlock>
@@ -669,9 +674,9 @@ export default function HomePage() {
                   <div className="overflow-x-auto">
                     <CodeBlock
                       language="bash"
-                      className="rounded-lg text-sm"
-                      customStyle={{ margin: 0, maxWidth: '100%', overflowX: 'auto' }}
-                      wrapLongLines={false}
+                      className="rounded-lg text-xs sm:text-sm"
+                      customStyle={{ margin: 0, maxWidth: "100%", whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                      wrapLongLines
                     >
                       {oneClickInstallNoWhisper}
                     </CodeBlock>
@@ -747,9 +752,9 @@ export default function HomePage() {
                 <div className="overflow-x-auto">
                   <CodeBlock
                     language="bash"
-                    className="rounded-lg text-sm"
-                    customStyle={{ margin: 0, maxWidth: '100%', overflowX: 'auto' }}
-                    wrapLongLines={false}
+                    className="rounded-lg text-xs sm:text-sm"
+                    customStyle={{ margin: 0, maxWidth: "100%", whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                    wrapLongLines
                   >
                     {uninstallCommand}
                   </CodeBlock>
@@ -996,7 +1001,7 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
                 href="#install"
-                className="inline-flex items-center justify-center gap-2 bg-primary text-white dark:text-zinc-900 hover:bg-primary/90 px-8 py-4 rounded-xl text-lg font-semibold transition-all hover:scale-105 shadow-lg shadow-primary/25"
+                className={primaryButtonClass}
               >
                 <Download className="h-5 w-5" />
                 Install Vocalinux
@@ -1005,7 +1010,7 @@ export default function HomePage() {
                 href="https://github.com/jatinkrmalik/vocalinux"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-white hover:bg-zinc-800 px-8 py-4 rounded-xl text-lg font-semibold transition-all"
+                className={secondaryButtonClass}
               >
                 <Star className="h-5 w-5" />
                 Star on GitHub

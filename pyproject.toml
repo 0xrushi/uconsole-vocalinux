@@ -14,7 +14,7 @@ authors = [
 maintainers = [
     {name = "Jatin K Malik", email = "jatinkrmalik@gmail.com"}
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.8.1"
 keywords = [
     "voice", "dictation", "speech", "recognition", 
     "linux", "accessibility", "voice-typing", "speech-to-text"
@@ -41,11 +41,15 @@ dependencies = [
     "pydub>=0.25.1",
     "pynput>=1.7.6",
     "requests>=2.28.0",
+    "pyyaml>=6.0",
     "tqdm>=4.64.0",
     "numpy>=1.22.0",
     "pyaudio>=0.2.13",
     "python-xlib; sys_platform == 'linux'",
     "PyGObject; sys_platform == 'linux'",
+    "textual>=0.44.0",
+    "langchain-community>=0.2.0",
+    "rank-bm25>=0.2.2",
 ]
 
 [project.optional-dependencies]
@@ -83,7 +87,7 @@ Issues = "https://github.com/jatinkrmalik/vocalinux/issues"
 Changelog = "https://github.com/jatinkrmalik/vocalinux/releases"
 
 [tool.setuptools]
-packages = ["vocalinux", "vocalinux.speech_recognition", "vocalinux.text_injection", "vocalinux.ui", "vocalinux.utils"]
+packages = ["vocalinux", "vocalinux.llm", "vocalinux.speech_recognition", "vocalinux.text_injection", "vocalinux.ui", "vocalinux.utils"]
 package-dir = {"" = "src"}
 
 [tool.setuptools.dynamic]

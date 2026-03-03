@@ -64,12 +64,17 @@ class TextInjector:
                     ["wtype", "test"], stderr=subprocess.PIPE, text=True, check=False
                 )
                 error_output = result.stderr.lower()
-                if "compositor does not support" in error_output or result.returncode != 0:
+                if (
+                    "compositor does not support" in error_output
+                    or result.returncode != 0
+                ):
                     logger.warning(
                         f"Wayland compositor does not support virtual keyboard protocol: {error_output}"
                     )
                     if shutil.which("xdotool"):
-                        logger.info("Automatically switching to XWayland fallback with xdotool")
+                        logger.info(
+                            "Automatically switching to XWayland fallback with xdotool"
+                        )
                         self.environment = DesktopEnvironment.WAYLAND_XDOTOOL
                     else:
                         logger.error("No fallback text injection method available")
@@ -106,7 +111,9 @@ class TextInjector:
             elif "DISPLAY" in os.environ:
                 return DesktopEnvironment.X11
             else:
-                logger.warning("Could not detect desktop environment, defaulting to X11")
+                logger.warning(
+                    "Could not detect desktop environment, defaulting to X11"
+                )
                 return DesktopEnvironment.X11
 
     def _check_dependencies(self):
@@ -114,7 +121,9 @@ class TextInjector:
         if self.environment == DesktopEnvironment.X11:
             # Check for xdotool
             if not shutil.which("xdotool"):
-                logger.error("xdotool not found. Please install it with: sudo apt install xdotool")
+                logger.error(
+                    "xdotool not found. Please install it with: sudo apt install xdotool"
+                )
                 raise RuntimeError("Missing required dependency: xdotool")
         else:
             # Check for wtype or ydotool for Wayland
@@ -214,7 +223,9 @@ class TextInjector:
                     if "compositor does not support" in str(
                         e
                     ).lower() + " " + stderr_msg.lower() and shutil.which("xdotool"):
-                        logger.info("Automatically switching to XWayland fallback permanently")
+                        logger.info(
+                            "Automatically switching to XWayland fallback permanently"
+                        )
                         self.environment = DesktopEnvironment.WAYLAND_XDOTOOL
                         self._inject_with_xdotool(escaped_text)
                     else:
@@ -229,6 +240,68 @@ class TextInjector:
                 play_error_sound()  # Play error sound when text injection fails
             except ImportError:
                 logger.warning("Could not import audio feedback module")
+            return False
+
+    def get_active_window_id(self) -> Optional[str]:
+        """Best-effort: get active window id (X11/XWayland only)."""
+        if self.environment not in {
+            DesktopEnvironment.X11,
+            DesktopEnvironment.WAYLAND_XDOTOOL,
+        }:
+            return None
+
+        env = os.environ.copy()
+        if self.environment == DesktopEnvironment.WAYLAND_XDOTOOL:
+            env["GDK_BACKEND"] = "x11"
+            env["QT_QPA_PLATFORM"] = "xcb"
+            if not env.get("DISPLAY"):
+                env["DISPLAY"] = ":0"
+
+        try:
+            result = subprocess.run(
+                ["xdotool", "getactivewindow"],
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+                timeout=1,
+            )
+            if result.returncode != 0:
+                return None
+            window_id = result.stdout.strip()
+            return window_id or None
+        except Exception:
+            return None
+
+    def activate_window(self, window_id: str) -> bool:
+        """Best-effort: activate a window (X11/XWayland only)."""
+        if not window_id:
+            return False
+        if self.environment not in {
+            DesktopEnvironment.X11,
+            DesktopEnvironment.WAYLAND_XDOTOOL,
+        }:
+            return False
+
+        env = os.environ.copy()
+        if self.environment == DesktopEnvironment.WAYLAND_XDOTOOL:
+            env["GDK_BACKEND"] = "x11"
+            env["QT_QPA_PLATFORM"] = "xcb"
+            if not env.get("DISPLAY"):
+                env["DISPLAY"] = ":0"
+
+        try:
+            subprocess.run(
+                ["xdotool", "windowactivate", "--sync", window_id],
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=1,
+            )
+            return True
+        except Exception:
             return False
 
     def _escape_text(self, text: str) -> str:
@@ -326,10 +399,17 @@ class TextInjector:
 
                         # First try with clearmodifiers
                         cmd = ["xdotool", "type", "--clearmodifiers", chunk]
-                        logger.debug(f"Injecting chunk {chunk_num}/{total_chunks}: '{chunk}'")
+                        logger.debug(
+                            f"Injecting chunk {chunk_num}/{total_chunks}: '{chunk}'"
+                        )
 
                         result = subprocess.run(
-                            cmd, env=env, check=True, stderr=subprocess.PIPE, text=True, timeout=5
+                            cmd,
+                            env=env,
+                            check=True,
+                            stderr=subprocess.PIPE,
+                            text=True,
+                            timeout=5,
                         )
 
                         # Add a larger delay between chunks
@@ -343,7 +423,7 @@ class TextInjector:
                 except subprocess.CalledProcessError as chunk_error:
                     if retry < max_retries:
                         logger.warning(
-                            f"Retrying text injection (attempt {retry+1}/{max_retries}): {chunk_error.stderr}"
+                            f"Retrying text injection (attempt {retry + 1}/{max_retries}): {chunk_error.stderr}"
                         )
                         time.sleep(0.5)  # Wait before retry
                     else:
@@ -352,7 +432,7 @@ class TextInjector:
                 except subprocess.TimeoutExpired:
                     if retry < max_retries:
                         logger.warning(
-                            f"Text injection timeout, retrying (attempt {retry+1}/{max_retries})"
+                            f"Text injection timeout, retrying (attempt {retry + 1}/{max_retries})"
                         )
                         time.sleep(0.5)
                     else:

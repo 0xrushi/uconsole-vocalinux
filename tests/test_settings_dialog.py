@@ -9,15 +9,24 @@ import sys
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
-sys.modules["gi"] = MagicMock()
-sys.modules["gi.repository"] = MagicMock()
-sys.modules["gi.repository.Gtk"] = MagicMock()
-sys.modules["gi.repository.GLib"] = MagicMock()
-
 from vocalinux.common_types import RecognitionState
 
-# Now import the class under test with GTK already mocked
-from vocalinux.ui.settings_dialog import ENGINE_MODELS, SettingsDialog
+
+def _import_settings_dialog():
+    """Import settings_dialog with GTK mocked for tests."""
+
+    with patch.dict(
+        sys.modules,
+        {
+            "gi": MagicMock(),
+            "gi.repository": MagicMock(),
+            "gi.repository.Gtk": MagicMock(),
+            "gi.repository.GLib": MagicMock(),
+        },
+    ):
+        from vocalinux.ui import settings_dialog
+
+        return settings_dialog.ENGINE_MODELS, settings_dialog.SettingsDialog
 
 # Create mock for speech engine
 mock_speech_engine = Mock()
@@ -47,6 +56,12 @@ mock_config_manager.save_settings = Mock()
 
 class TestSettingsDialog(unittest.TestCase):
     """Test cases for the settings dialog."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Import SettingsDialog with GTK mocked."""
+
+        cls.ENGINE_MODELS, cls.SettingsDialog = _import_settings_dialog()
 
     def setUp(self):
         """Set up test fixtures."""
@@ -86,7 +101,7 @@ class TestSettingsDialog(unittest.TestCase):
 
         # Mock SettingsDialog to avoid actually creating GTK objects
         with patch("vocalinux.ui.settings_dialog.SettingsDialog.__init__", return_value=None):
-            self.dialog = SettingsDialog(
+            self.dialog = self.SettingsDialog(
                 parent=None,
                 config_manager=mock_config_manager,
                 speech_engine=mock_speech_engine,
@@ -115,8 +130,8 @@ class TestSettingsDialog(unittest.TestCase):
             )
 
             # Create a real method for apply_settings to test
-            self.dialog.apply_settings = SettingsDialog.apply_settings.__get__(
-                self.dialog, SettingsDialog
+            self.dialog.apply_settings = self.SettingsDialog.apply_settings.__get__(
+                self.dialog, self.SettingsDialog
             )
             self.dialog._test_text_callback = Mock()
             self.dialog._stop_test_after_delay = Mock()

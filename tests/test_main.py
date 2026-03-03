@@ -110,8 +110,12 @@ class TestMainModule(unittest.TestCase):
             )
             mock_text.assert_called_once_with(wayland_mode=True)
             mock_action_handler.assert_called_once_with(mock_text_instance)
+            from unittest.mock import ANY
+
             mock_tray.assert_called_once_with(
-                speech_engine=mock_speech_instance, text_injector=mock_text_instance
+                speech_engine=mock_speech_instance,
+                text_injector=mock_text_instance,
+                shortcut_manager=ANY,
             )
 
             # Verify callbacks were registered
@@ -132,16 +136,11 @@ class TestMainModule(unittest.TestCase):
             "vocalinux.main.logging"
         ) as mock_logging, patch("vocalinux.main.logging.DEBUG", logging.DEBUG), patch(
             "vocalinux.speech_recognition.recognition_manager.SpeechRecognitionManager"
-        ), patch(
-            "vocalinux.text_injection.text_injector.TextInjector"
-        ), patch(
+        ), patch("vocalinux.text_injection.text_injector.TextInjector"), patch(
             "vocalinux.ui.tray_indicator.TrayIndicator"
-        ), patch(
-            "vocalinux.main.ActionHandler"
-        ), patch(
+        ), patch("vocalinux.main.ActionHandler"), patch(
             "vocalinux.main.check_dependencies"
         ) as mock_check_deps:
-
             # Mock dependency check to return True
             mock_check_deps.return_value = True
 

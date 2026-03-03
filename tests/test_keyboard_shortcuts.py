@@ -16,7 +16,9 @@ class TestKeyboardShortcuts(unittest.TestCase):
     def setUp(self):
         """Set up for tests."""
         # Set up more complete mocks for the keyboard library
-        self.kb_patch = patch("vocalinux.ui.keyboard_shortcuts.KEYBOARD_AVAILABLE", True)
+        self.kb_patch = patch(
+            "vocalinux.ui.keyboard_shortcuts.KEYBOARD_AVAILABLE", True
+        )
         self.kb_patch.start()
 
         # Create proper Key enum and KeyCode class
@@ -135,6 +137,44 @@ class TestKeyboardShortcuts(unittest.TestCase):
         # Verify it was registered as double-tap callback
         self.assertEqual(self.ksm.double_tap_callback, callback)
 
+    def test_ppp_armed_triggers_callback(self):
+        # Initialize and start to set up the listener
+        self.ksm.start()
+
+        on_press = self.mock_keyboard.Listener.call_args[1]["on_press"]
+
+        # Make thread run inline for deterministic test
+        class _InlineThread:
+            def __init__(self, target=None, daemon=None):
+                self._target = target
+
+            def start(self):
+                if self._target:
+                    self._target()
+
+        paste_cb = MagicMock()
+
+        with patch("vocalinux.ui.keyboard_shortcuts.threading.Thread", _InlineThread):
+            with patch(
+                "vocalinux.ui.keyboard_shortcuts.time.time",
+                side_effect=[
+                    1000.0,  # arm_paste
+                    1000.1,
+                    1000.1,  # press1
+                    1000.2,
+                    1000.2,  # press2
+                    1000.3,
+                    1000.3,  # press3
+                ],
+            ):
+                self.ksm.register_paste_callback(paste_cb)
+                self.ksm.arm_paste(20.0)
+                on_press(MagicMock(char="p"))
+                on_press(MagicMock(char="p"))
+                on_press(MagicMock(char="p"))
+
+        paste_cb.assert_called_once()
+
     def test_key_press_modifier(self):
         """Test handling a modifier key press."""
         # Initialize and start to set up the listener
@@ -165,7 +205,9 @@ class TestKeyboardShortcuts(unittest.TestCase):
         self.ksm.register_toggle_callback(callback)
 
         # Set up initial state
-        self.ksm.last_ctrl_press_time = time.time() - 0.2  # Recent press (within threshold)
+        self.ksm.last_ctrl_press_time = (
+            time.time() - 0.2
+        )  # Recent press (within threshold)
         self.ksm.last_trigger_time = 0  # No recent triggers
 
         # Simulate second Ctrl press (should trigger callback)
@@ -215,8 +257,12 @@ class TestKeyboardShortcuts(unittest.TestCase):
         self.ksm.register_toggle_callback(callback)
 
         # Set up initial state (recent trigger)
-        self.ksm.last_ctrl_press_time = time.time() - 0.2  # Recent press (within threshold)
-        self.ksm.last_trigger_time = time.time() - 0.2  # Recent trigger, within debounce
+        self.ksm.last_ctrl_press_time = (
+            time.time() - 0.2
+        )  # Recent press (within threshold)
+        self.ksm.last_trigger_time = (
+            time.time() - 0.2
+        )  # Recent trigger, within debounce
 
         # Simulate second Ctrl press (should NOT trigger due to debounce)
         on_press(self.mock_keyboard.Key.ctrl)

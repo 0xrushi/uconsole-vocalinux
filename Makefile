@@ -36,11 +36,11 @@ install-dev:
 # Testing
 test:
 	@echo "Running tests..."
-	pytest -v
+	PYTHONPATH=src pytest -v
 
 test-cov:
 	@echo "Running tests with coverage..."
-	pytest --cov=src --cov-report=html --cov-report=term
+	PYTHONPATH=src pytest --cov=src --cov-report=html --cov-report=term
 	@echo "Coverage report generated in htmlcov/"
 
 # Linting
